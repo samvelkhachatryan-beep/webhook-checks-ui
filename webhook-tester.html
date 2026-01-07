@@ -1,0 +1,1695 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Magic Flow Webhook Tester</title>
+  <style>
+    :root {
+      --bg-primary: #0a0a0a;
+      --bg-secondary: #141414;
+      --bg-tertiary: #1e1e1e;
+      --text-primary: #f0f0f0;
+      --text-secondary: #888;
+      --accent: #00d4ff;
+      --accent-hover: #00b8e6;
+      --success: #00ff88;
+      --error: #ff4466;
+      --warning: #ffaa00;
+      --border: #2a2a2a;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      padding: 2rem;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 0.5rem;
+      background: linear-gradient(90deg, var(--accent), #ff00aa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      color: var(--text-secondary);
+      margin-bottom: 2rem;
+      font-size: 0.9rem;
+    }
+
+    .control-panel {
+      background: var(--bg-secondary);
+      padding: 2rem;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      margin-bottom: 2rem;
+    }
+
+    .manual-test-section {
+      margin-bottom: 1.5rem;
+    }
+
+    input[type="text"]:focus {
+      border-color: var(--accent);
+    }
+
+    input[type="text"]::placeholder {
+      color: var(--text-secondary);
+      opacity: 0.6;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    button {
+      padding: 1rem 2rem;
+      font-size: 1rem;
+      font-family: inherit;
+      font-weight: 600;
+      background: var(--accent);
+      color: var(--bg-primary);
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      flex: 1;
+    }
+
+    button:hover:not(:disabled) {
+      background: var(--accent-hover);
+      transform: translateY(-2px);
+    }
+
+    button:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    button.secondary {
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+    }
+
+    button.secondary:hover:not(:disabled) {
+      background: var(--border);
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+
+    .stat-card {
+      background: var(--bg-tertiary);
+      padding: 1.5rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+
+    .stat-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      margin-bottom: 0.5rem;
+      letter-spacing: 1px;
+    }
+
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 700;
+    }
+
+    .stat-value.success {
+      color: var(--success);
+    }
+
+    .stat-value.error {
+      color: var(--error);
+    }
+
+    .stat-value.pending {
+      color: var(--warning);
+    }
+
+    .stat-value.total {
+      color: var(--accent);
+    }
+
+    .progress-section {
+      background: var(--bg-secondary);
+      padding: 2rem;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      margin-bottom: 2rem;
+      display: none;
+    }
+
+    .progress-section.visible {
+      display: block;
+    }
+
+    .progress-bar-container {
+      background: var(--bg-tertiary);
+      height: 8px;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 1rem;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), #ff00aa);
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
+    .progress-text {
+      text-align: center;
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+    }
+
+    .report-link-section {
+      margin-top: 1.5rem;
+      padding: 1rem;
+      background: var(--bg-tertiary);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      text-align: center;
+      display: none;
+    }
+
+    .report-link-section.visible {
+      display: block;
+    }
+
+    .report-link-section a {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+
+    .report-link-section a:hover {
+      text-decoration: underline;
+    }
+
+    .logs-container {
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      max-height: 200px;
+      overflow-y: auto;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      margin-top: 1rem;
+      font-family: 'Courier New', monospace;
+    }
+
+    .log-entry {
+      padding: 0.25rem 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .log-entry:last-child {
+      border-bottom: none;
+    }
+
+    .log-entry.success {
+      color: var(--success);
+    }
+
+    .log-entry.error {
+      color: var(--error);
+    }
+
+    .results-section {
+      background: var(--bg-secondary);
+      padding: 2rem;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      display: block !important;
+    }
+
+    .results-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+
+    h2 {
+      font-size: 1.5rem;
+      color: var(--text-primary);
+    }
+
+    .filter-buttons {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .filter-btn {
+      padding: 0.5rem 1rem;
+      font-size: 0.875rem;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      cursor: pointer;
+      border-radius: 6px;
+      transition: all 0.2s;
+    }
+
+    .filter-btn:hover {
+      background: var(--border);
+    }
+
+    .filter-btn.active {
+      background: var(--accent);
+      color: var(--bg-primary);
+      border-color: var(--accent);
+    }
+
+    .results-grid {
+      display: grid;
+      gap: 1rem;
+    }
+
+    .result-card {
+      background: var(--bg-tertiary);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      overflow: hidden;
+      transition: all 0.2s;
+    }
+
+    .result-card:hover {
+      border-color: var(--accent);
+    }
+
+    .result-card.failed {
+      border-color: var(--error);
+    }
+
+    .result-card.success {
+      border-color: var(--success);
+    }
+
+    .result-card.retrying {
+      border-color: var(--warning);
+      opacity: 0.7;
+    }
+
+    .result-header {
+      padding: 1rem;
+      background: var(--bg-primary);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .webhook-info {
+      flex: 1;
+    }
+
+    .webhook-title {
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 0.25rem;
+    }
+
+    .webhook-id {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      font-family: monospace;
+    }
+
+    .status-badge {
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .status-badge.success {
+      background: rgba(0, 255, 136, 0.15);
+      color: var(--success);
+    }
+
+    .status-badge.failed {
+      background: rgba(255, 68, 102, 0.15);
+      color: var(--error);
+    }
+
+    .status-badge.retrying {
+      background: rgba(255, 170, 0, 0.15);
+      color: var(--warning);
+    }
+
+    .retry-btn {
+      padding: 0.5rem 1rem;
+      font-size: 0.85rem;
+      background: var(--accent);
+      color: var(--bg-primary);
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .retry-btn:hover:not(:disabled) {
+      background: var(--accent-hover);
+      transform: translateY(-2px);
+    }
+
+    .retry-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .retry-status {
+      margin-top: 1rem;
+      padding: 0.75rem;
+      background: var(--bg-primary);
+      border-radius: 6px;
+      font-size: 0.85rem;
+      text-align: center;
+    }
+
+    .retry-status.loading {
+      color: var(--warning);
+    }
+
+    .retry-status.success {
+      color: var(--success);
+    }
+
+    .retry-status.error {
+      color: var(--error);
+    }
+
+    .error-group {
+      margin-bottom: 1.5rem;
+      background: var(--bg-tertiary);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+
+    .error-group-header {
+      padding: 1rem 1.5rem;
+      background: var(--bg-card);
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: background 0.2s;
+      border-left: 4px solid var(--error);
+    }
+
+    .error-group-header:hover {
+      background: var(--bg-secondary);
+    }
+
+    .error-icon {
+      font-size: 1.2rem;
+      margin-right: 0.5rem;
+    }
+
+    .error-message {
+      color: var(--text-primary);
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+
+    .error-count {
+      padding: 0.25rem 0.75rem;
+      background: rgba(255, 68, 102, 0.15);
+      color: var(--error);
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    .expand-icon {
+      color: var(--text-secondary);
+      font-size: 0.8rem;
+      transition: transform 0.2s;
+    }
+
+    .error-group.expanded .expand-icon {
+      transform: rotate(180deg);
+    }
+
+    .error-group-content {
+      display: none;
+      padding: 1rem;
+      background: var(--bg-primary);
+    }
+
+    .error-group.expanded .error-group-content {
+      display: block;
+    }
+
+    .error-group .result-card {
+      margin-bottom: 1rem;
+    }
+
+    .error-group .result-card:last-child {
+      margin-bottom: 0;
+    }
+
+    .group-toggle-btn {
+      padding: 0.5rem 1rem;
+      font-size: 0.85rem;
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-weight: 600;
+    }
+
+    .group-toggle-btn:hover {
+      background: var(--border);
+    }
+
+    .group-toggle-btn.active {
+      background: var(--accent);
+      color: var(--bg-primary);
+      border-color: var(--accent);
+    }
+
+    .history-dropdown {
+      position: absolute;
+      top: calc(100% + 0.5rem);
+      right: 0;
+      background: var(--bg-primary);
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8), 0 0 0 1000px rgba(0, 0, 0, 0.5);
+      min-width: 450px;
+      max-height: 500px;
+      overflow: hidden;
+      z-index: 9999;
+      display: none;
+    }
+
+    .history-dropdown.visible {
+      display: block;
+      animation: slideDown 0.2s ease;
+    }
+
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .history-dropdown-header {
+      padding: 1rem 1.5rem;
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: var(--text-primary);
+    }
+
+    .history-dropdown-content {
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .history-loading {
+      padding: 2rem;
+      text-align: center;
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+    }
+
+    .history-item {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background 0.2s;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .history-item:last-child {
+      border-bottom: none;
+    }
+
+    .history-item:hover {
+      background: var(--bg-secondary);
+    }
+
+    .history-item-info {
+      flex: 1;
+    }
+
+    .history-item-name {
+      font-size: 0.85rem;
+      color: var(--accent);
+      font-family: monospace;
+      margin-bottom: 0.25rem;
+    }
+
+    .history-item-date {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+    }
+
+    .history-item-size {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      padding: 0.25rem 0.5rem;
+      background: var(--bg-tertiary);
+      border-radius: 4px;
+    }
+
+    .history-empty {
+      padding: 2rem;
+      text-align: center;
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+    }
+
+    .result-content {
+      padding: 1rem;
+    }
+
+    .media-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 1rem;
+    }
+
+    .media-item {
+      background: var(--bg-primary);
+      border-radius: 8px;
+      padding: 1rem;
+      border: 1px solid var(--border);
+    }
+
+    .media-type {
+      display: inline-block;
+      padding: 0.25rem 0.5rem;
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      background: rgba(0, 212, 255, 0.15);
+      color: var(--accent);
+      border-radius: 4px;
+      margin-bottom: 0.75rem;
+    }
+
+    .media-preview img {
+      width: 100%;
+      height: 200px;
+      object-fit: cover;
+      border-radius: 6px;
+      margin-bottom: 0.5rem;
+    }
+
+    .media-link {
+      font-size: 0.7rem;
+      color: var(--accent);
+      text-decoration: none;
+      word-break: break-all;
+      display: block;
+    }
+
+    .media-link:hover {
+      text-decoration: underline;
+    }
+
+    .error-message {
+      padding: 1rem;
+      background: rgba(255, 68, 102, 0.1);
+      border: 1px solid var(--error);
+      border-radius: 6px;
+      color: var(--error);
+      font-size: 0.875rem;
+    }
+
+    .no-results {
+      text-align: center;
+      padding: 3rem;
+      color: var(--text-secondary);
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-left: 0.5rem;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--bg-primary);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text-secondary);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>🎨 Magic Flow Webhook Tester</h1>
+    <p class="subtitle">Run and monitor webhook tests in real-time</p>
+
+    <div class="control-panel">
+      <div class="manual-test-section">
+        <label for="manualWebhookIds" style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-size: 0.9rem;">
+          Manual Webhook Testing (comma-separated IDs):
+        </label>
+        <div style="display: flex; gap: 1rem;">
+          <input 
+            type="text" 
+            id="manualWebhookIds" 
+            placeholder="e.g., 69314bdfe9637d9ac5140f33, 69315262b5bc5942e3edd5aa, ..."
+            style="flex: 1; padding: 0.75rem 1rem; background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); font-size: 0.9rem; outline: none; font-family: monospace;"
+          />
+          <button type="button" onclick="runManualTests()" style="padding: 0.75rem 2rem; white-space: nowrap;">
+            🎯 Test Selected
+          </button>
+        </div>
+        <div style="margin-top: 0.5rem; font-size: 0.75rem; color: var(--text-secondary);">
+          💡 Tip: Enter one or more webhook IDs separated by commas
+        </div>
+      </div>
+
+      <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border);">
+        <div class="button-group">
+          <button type="button" id="runAllBtn" onclick="runAllTests()">
+            <span id="runBtnText">🚀 Run All Webhook Tests</span>
+          </button>
+          <button type="button" id="resumeBtn" class="secondary" onclick="resumeTests()" style="display: none;">
+            ▶️ Resume Test
+          </button>
+          <button type="button" class="secondary" onclick="clearResults()">🗑️ Clear Results</button>
+          <div style="position: relative;">
+            <button type="button" class="secondary" onclick="toggleHistoryDropdown()" style="display: flex; align-items: center; gap: 0.5rem;">
+              <span>📋 View History</span>
+              <span id="historyDropdownIcon" style="font-size: 0.7rem; transition: transform 0.2s;">▼</span>
+            </button>
+            <div class="history-dropdown" id="historyDropdown">
+              <div class="history-dropdown-header">All Test Reports</div>
+              <div class="history-dropdown-content" id="historyDropdownContent">
+                <div class="history-loading">Loading...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Total</div>
+          <div class="stat-value total" id="totalCount">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Passed</div>
+          <div class="stat-value success" id="passedCount">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Failed</div>
+          <div class="stat-value error" id="failedCount">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Duration</div>
+          <div class="stat-value" id="duration">0s</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="progress-section" id="progressSection">
+      <div class="progress-bar-container">
+        <div class="progress-bar" id="progressBar"></div>
+      </div>
+      <div class="progress-text" id="progressText">Initializing...</div>
+      <div class="logs-container" id="logsContainer"></div>
+      <div class="report-link-section" id="reportLinkSection">
+        <p>📄 Report saved: <a id="reportLink" href="#" target="_blank">View Report</a></p>
+        <p style="margin-top: 0.5rem;">📋 <a href="./artifacts/index.html" target="_blank">View All Reports</a></p>
+      </div>
+    </div>
+
+    <div class="results-section" id="resultsSection">
+      <div class="results-header">
+        <h2>Test Results</h2>
+        <div class="filter-buttons">
+          <button type="button" class="filter-btn active" onclick="filterResults('all')" data-filter="all">All</button>
+          <button type="button" class="filter-btn" onclick="filterResults('passed')" data-filter="passed">Passed</button>
+          <button type="button" class="filter-btn" onclick="filterResults('failed')" data-filter="failed">Failed</button>
+          <button type="button" class="group-toggle-btn" id="groupToggleBtn" onclick="toggleGrouping()">📑 Group Errors</button>
+        </div>
+      </div>
+      <div class="results-grid" id="resultsGrid">
+        <div class="no-results">Click "Run All Webhook Tests" to begin testing</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let testResults = [];
+    let currentFilter = 'all';
+    let startTime = null;
+    let durationInterval = null;
+    let isTestRunning = false;
+    let groupByError = false;
+    let totalWebhooksCount = 0;
+    let testCompleted = false; // Flag to prevent clearing after completion
+    const retryingWebhooks = new Set(); // Track webhooks currently being retried
+
+    // Restore previous session on load
+    window.addEventListener('DOMContentLoaded', () => {
+      const savedResults = localStorage.getItem('testResults');
+      const savedStartTime = localStorage.getItem('startTime');
+      const savedTotal = localStorage.getItem('totalWebhooksCount');
+      const wasRunning = localStorage.getItem('isTestRunning') === 'true';
+      
+      if (savedResults) {
+        try {
+          testResults = JSON.parse(savedResults);
+          if (testResults.length > 0) {
+            updateStats();
+            displayResults();
+            console.log(`Restored ${testResults.length} results from previous session`);
+            
+            // Show resume button if we were in the middle of a test
+            if (savedTotal) {
+              totalWebhooksCount = parseInt(savedTotal);
+              if (wasRunning && testResults.length < totalWebhooksCount) {
+                document.getElementById('resumeBtn').style.display = 'block';
+                log(`Test was interrupted. ${testResults.length}/${totalWebhooksCount} completed.`, 'info');
+                log('Click "Resume Test" to continue testing remaining webhooks.', 'info');
+              }
+            }
+          }
+        } catch (e) {
+          console.error('Failed to restore results:', e);
+        }
+      }
+      
+      if (savedStartTime && !wasRunning) {
+        // Only restore timer if test was completed (not still running)
+        startTime = parseInt(savedStartTime);
+        updateDuration(); // Update once, but don't keep ticking
+        console.log('Restored duration:', document.getElementById('duration').textContent);
+      }
+    });
+
+    // Warn before closing ONLY during active test
+    window.addEventListener('beforeunload', (e) => {
+      console.log('Page unload event. isTestRunning:', isTestRunning, 'testCompleted:', testCompleted);
+      
+      // Only warn if test is actively running (not completed)
+      if (isTestRunning && !testCompleted) {
+        console.log('⚠️ Warning user: test is still running');
+        e.preventDefault();
+        e.returnValue = 'Test is still running. Are you sure you want to leave?';
+        return e.returnValue;
+      }
+      
+      // After completion, allow reload without warning
+      // Results will be restored from localStorage anyway
+      console.log('Test completed or not running. Allowing reload without warning.');
+    });
+
+    // Save results to localStorage
+    function saveResults() {
+      try {
+        localStorage.setItem('testResults', JSON.stringify(testResults));
+        if (startTime) {
+          localStorage.setItem('startTime', startTime.toString());
+        }
+        if (totalWebhooksCount > 0) {
+          localStorage.setItem('totalWebhooksCount', totalWebhooksCount.toString());
+        }
+        localStorage.setItem('isTestRunning', isTestRunning.toString());
+      } catch (e) {
+        console.error('Failed to save results:', e);
+      }
+    }
+
+    // Clear saved results
+    function clearSavedResults() {
+      localStorage.removeItem('testResults');
+      localStorage.removeItem('startTime');
+      localStorage.removeItem('totalWebhooksCount');
+      localStorage.removeItem('isTestRunning');
+    }
+
+    function log(message, type = 'info') {
+      const logsContainer = document.getElementById('logsContainer');
+      const entry = document.createElement('div');
+      entry.className = `log-entry ${type}`;
+      entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      logsContainer.appendChild(entry);
+      logsContainer.scrollTop = logsContainer.scrollHeight;
+    }
+
+    function updateStats() {
+      const passed = testResults.filter(r => r.status === 'success').length;
+      const failed = testResults.filter(r => r.status === 'failed').length;
+      
+      document.getElementById('totalCount').textContent = testResults.length;
+      document.getElementById('passedCount').textContent = passed;
+      document.getElementById('failedCount').textContent = failed;
+      
+      // Save to localStorage
+      saveResults();
+    }
+
+    function updateProgress(current, total) {
+      const percent = (current / total) * 100;
+      document.getElementById('progressBar').style.width = percent + '%';
+      document.getElementById('progressText').textContent =
+        `Testing webhooks: ${current} / ${total} (${Math.round(percent)}%)`;
+    }
+
+    function updateDuration() {
+      if (startTime) {
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        document.getElementById('duration').textContent = elapsed + 's';
+      }
+    }
+
+    function displayResults() {
+      const grid = document.getElementById('resultsGrid');
+      const resultsSection = document.getElementById('resultsSection');
+      
+      console.log('displayResults called. Total results:', testResults.length, 'Filter:', currentFilter);
+
+      // Ensure results section is always visible
+      if (resultsSection) {
+        resultsSection.style.display = 'block';
+      }
+
+      let filtered = testResults;
+      if (currentFilter === 'passed') {
+        filtered = testResults.filter(r => r.status === 'success');
+      } else if (currentFilter === 'failed') {
+        filtered = testResults.filter(r => r.status === 'failed');
+      }
+
+      console.log('Filtered results:', filtered.length);
+
+      if (filtered.length === 0) {
+        if (testResults.length > 0) {
+          grid.innerHTML = '<div class="no-results">No results match the current filter</div>';
+        } else {
+          grid.innerHTML = '<div class="no-results">No results yet. Run a test to see results here.</div>';
+        }
+        return;
+      }
+
+      let html = '';
+
+      // Group by error if showing failed and groupByError is enabled
+      if (currentFilter === 'failed' && groupByError && filtered.length > 0) {
+        html = renderGroupedFailures(filtered);
+      } else {
+        // Regular display
+        filtered.forEach((result, index) => {
+          html += renderResultCard(result);
+        });
+      }
+
+      console.log('Setting grid HTML with', filtered.length, 'cards');
+      console.log('HTML length:', html.length, 'characters');
+      grid.innerHTML = html;
+      console.log('Grid HTML updated. Grid has', grid.children.length, 'children');
+      console.log('Grid element:', grid);
+      console.log('Grid offsetHeight:', grid.offsetHeight, 'Grid offsetWidth:', grid.offsetWidth);
+    }
+
+    function renderResultCard(result) {
+      const isRetrying = retryingWebhooks.has(result.webhookId);
+      const statusClass = isRetrying ? 'retrying' : (result.status === 'success' ? 'success' : 'failed');
+      const title = result.title || result.slug || 'Untitled';
+      const cardId = `card-${result.webhookId}`;
+
+      // If retrying, preserve the existing card's content
+      if (isRetrying) {
+        const existingCard = document.getElementById(cardId);
+        if (existingCard) {
+          // Return the existing card's HTML to preserve retry state
+          return existingCard.outerHTML;
+        }
+      }
+
+      return `
+        <div class="result-card ${statusClass}" id="${cardId}">
+          <div class="result-header">
+            <div class="webhook-info">
+              <div class="webhook-title">${escapeHtml(title)}</div>
+              <div class="webhook-id">${escapeHtml(result.webhookId)}</div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 1rem;">
+              <div class="status-badge ${statusClass}">
+                ${result.status === 'success' ? '✓ Passed' : '✗ Failed'}
+              </div>
+              ${result.status === 'failed' && !isRetrying ? `
+                <button type="button" class="retry-btn" onclick="retryWebhook('${escapeHtml(result.webhookId)}', '${escapeHtml(result.slug || '')}', '${escapeHtml(result.title || '')}')">
+                  🔄 Retry
+                </button>
+              ` : ''}
+            </div>
+          </div>
+          <div class="result-content">
+            ${result.status === 'success' ? renderMediaResults(result.results) : renderError(result.error)}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderGroupedFailures(failedResults) {
+      // Group by error message
+      const groups = {};
+      failedResults.forEach(result => {
+        const errorKey = normalizeError(result.error || 'Unknown error');
+        if (!groups[errorKey]) {
+          groups[errorKey] = [];
+        }
+        groups[errorKey].push(result);
+      });
+
+      // Sort groups by count (most common errors first)
+      const sortedGroups = Object.entries(groups).sort((a, b) => b[1].length - a[1].length);
+
+      let html = '';
+      sortedGroups.forEach(([errorMsg, webhooks], groupIndex) => {
+        const groupId = `error-group-${groupIndex}`;
+        html += `
+          <div class="error-group" id="${groupId}">
+            <div class="error-group-header" onclick="toggleErrorGroup('${groupId}')">
+              <div>
+                <span class="error-icon">⚠️</span>
+                <span class="error-message">${escapeHtml(errorMsg)}</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 1rem;">
+                <span class="error-count">${webhooks.length} webhook${webhooks.length > 1 ? 's' : ''}</span>
+                <span class="expand-icon">▼</span>
+              </div>
+            </div>
+            <div class="error-group-content">
+              ${webhooks.map(result => renderResultCard(result)).join('')}
+            </div>
+          </div>
+        `;
+      });
+
+      return html;
+    }
+
+    function normalizeError(error) {
+      // Remove IDs and timestamps to group similar errors
+      return error
+        .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '[ID]')
+        .replace(/[0-9a-f]{24}/gi, '[ID]')
+        .replace(/\d{13,}/g, '[TIMESTAMP]')
+        .substring(0, 150); // Limit length
+    }
+
+    function toggleErrorGroup(groupId) {
+      const group = document.getElementById(groupId);
+      if (group) {
+        group.classList.toggle('expanded');
+      }
+    }
+
+    function renderMediaResults(results) {
+      if (!results || results.length === 0) {
+        return '<div class="no-results">No media results</div>';
+      }
+
+      let html = '<div class="media-grid">';
+      results.forEach(item => {
+        html += `
+          <div class="media-item">
+            <div class="media-type">${escapeHtml(item.type)}</div>
+            ${item.type === 'image' ?
+            `<div class="media-preview"><img src="${escapeHtml(item.url)}" alt="Result" /></div>` :
+            ''}
+            <a href="${escapeHtml(item.url)}" target="_blank" class="media-link">
+              ${escapeHtml(item.url)}
+            </a>
+          </div>
+        `;
+      });
+      html += '</div>';
+      return html;
+    }
+
+    function renderError(error) {
+      return `<div class="error-message">${escapeHtml(error || 'Unknown error')}</div>`;
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str || '';
+      return div.innerHTML;
+    }
+
+    async function retryWebhook(webhookId, slug, title) {
+      const cardId = `card-${webhookId}`;
+      const card = document.getElementById(cardId);
+
+      if (!card) {
+        console.error('Card not found:', cardId);
+        return;
+      }
+
+      // Mark as retrying to prevent re-render from destroying state
+      retryingWebhooks.add(webhookId);
+
+      log(`Retrying webhook: ${webhookId}`, 'info');
+
+      // Update card UI to show loading
+      card.classList.remove('failed', 'success');
+      card.classList.add('retrying');
+
+      const statusBadge = card.querySelector('.status-badge');
+      const retryBtn = card.querySelector('.retry-btn');
+      const resultContent = card.querySelector('.result-content');
+
+      if (!statusBadge || !retryBtn || !resultContent) {
+        console.error('Card elements not found');
+        retryingWebhooks.delete(webhookId);
+        return;
+      }
+
+      // Force immediate UI update
+      statusBadge.className = 'status-badge retrying';
+      statusBadge.textContent = '⏳ Retrying...';
+      retryBtn.disabled = true;
+      retryBtn.textContent = '⏳ Running...';
+
+      resultContent.innerHTML = '<div class="retry-status loading">🔄 Testing webhook, please wait...</div>';
+
+      // Force browser to repaint
+      card.offsetHeight;
+      
+      try {
+        const response = await fetch('http://localhost:3000/api/test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ webhookId })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          // Update result in testResults array
+          const resultIndex = testResults.findIndex(r => r.webhookId === webhookId);
+          if (resultIndex !== -1) {
+            testResults[resultIndex] = {
+              webhookId,
+              slug,
+              title,
+              status: 'success',
+              results: data.results
+            };
+          }
+          
+          // Update card UI for success
+          card.classList.remove('retrying', 'failed');
+          card.classList.add('success');
+          statusBadge.className = 'status-badge success';
+          statusBadge.textContent = '✓ Passed';
+          retryBtn.style.display = 'none';
+          resultContent.innerHTML = renderMediaResults(data.results);
+          
+          // Remove from retrying set
+          retryingWebhooks.delete(webhookId);
+          
+          // Force repaint
+          card.offsetHeight;
+          
+          log(`✓ Retry successful for ${webhookId}`, 'success');
+          updateStats();
+        } else {
+          // Update for failure
+          card.classList.remove('retrying', 'success');
+          card.classList.add('failed');
+          statusBadge.className = 'status-badge failed';
+          statusBadge.textContent = '✗ Failed';
+          retryBtn.disabled = false;
+          retryBtn.textContent = '🔄 Retry';
+          resultContent.innerHTML = renderError(data.error);
+          
+          // Remove from retrying set
+          retryingWebhooks.delete(webhookId);
+          
+          // Force repaint
+          card.offsetHeight;
+          
+          log(`✗ Retry failed for ${webhookId}: ${data.error}`, 'error');
+        }
+      } catch (error) {
+        // Update for error
+        card.classList.remove('retrying', 'success');
+        card.classList.add('failed');
+        statusBadge.className = 'status-badge failed';
+        statusBadge.textContent = '✗ Failed';
+        retryBtn.disabled = false;
+        retryBtn.textContent = '🔄 Retry';
+        resultContent.innerHTML = renderError(error.message);
+        
+        // Remove from retrying set
+        retryingWebhooks.delete(webhookId);
+        
+        // Force repaint
+        card.offsetHeight;
+        
+        log(`✗ Retry error for ${webhookId}: ${error.message}`, 'error');
+      }
+    }
+
+    function filterResults(filter) {
+      currentFilter = filter;
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.filter === filter);
+      });
+      displayResults();
+    }
+
+    function toggleGrouping() {
+      groupByError = !groupByError;
+      const btn = document.getElementById('groupToggleBtn');
+      btn.classList.toggle('active', groupByError);
+      btn.textContent = groupByError ? '📋 Ungroup Errors' : '📑 Group Errors';
+      displayResults();
+    }
+
+    async function toggleHistoryDropdown() {
+      const dropdown = document.getElementById('historyDropdown');
+      const icon = document.getElementById('historyDropdownIcon');
+      const isVisible = dropdown.classList.contains('visible');
+      
+      if (isVisible) {
+        dropdown.classList.remove('visible');
+        icon.style.transform = 'rotate(0deg)';
+      } else {
+        dropdown.classList.add('visible');
+        icon.style.transform = 'rotate(180deg)';
+        await loadHistoryReports();
+      }
+    }
+
+    async function loadHistoryReports() {
+      const content = document.getElementById('historyDropdownContent');
+      content.innerHTML = '<div class="history-loading">Loading reports...</div>';
+      
+      try {
+        const response = await fetch('http://localhost:3000/api/reports');
+        if (!response.ok) {
+          throw new Error('Failed to fetch reports');
+        }
+        
+        const reports = await response.json();
+        
+        if (reports.length === 0) {
+          content.innerHTML = '<div class="history-empty">No test reports yet</div>';
+          return;
+        }
+        
+        // Show all reports (no limit)
+        const latestReports = reports;
+        
+        let html = '';
+        latestReports.forEach(report => {
+          const date = new Date(report.created);
+          const dateStr = date.toLocaleString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          });
+          const sizeKB = (report.size / 1024).toFixed(1);
+          
+          html += `
+            <div class="history-item" onclick="openReport('${escapeHtml(report.filename)}')">
+              <div class="history-item-info">
+                <div class="history-item-name">${escapeHtml(report.filename)}</div>
+                <div class="history-item-date">${dateStr}</div>
+              </div>
+              <div class="history-item-size">${sizeKB} KB</div>
+            </div>
+          `;
+        });
+        
+        content.innerHTML = html;
+      } catch (error) {
+        content.innerHTML = `<div class="history-empty">Error: ${error.message}</div>`;
+      }
+    }
+
+    function openReport(filename) {
+      window.open(`./artifacts/${filename}`, '_blank');
+      const dropdown = document.getElementById('historyDropdown');
+      const icon = document.getElementById('historyDropdownIcon');
+      dropdown.classList.remove('visible');
+      icon.style.transform = 'rotate(0deg)';
+    }
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+      const dropdown = document.getElementById('historyDropdown');
+      const icon = document.getElementById('historyDropdownIcon');
+      const historyBtn = e.target.closest('button');
+      
+      if (dropdown && !dropdown.contains(e.target) && 
+          (!historyBtn || !historyBtn.textContent.includes('View History'))) {
+        dropdown.classList.remove('visible');
+        if (icon) icon.style.transform = 'rotate(0deg)';
+      }
+    });
+
+    function clearResults() {
+      console.log('clearResults() called explicitly by user');
+      testResults = [];
+      isTestRunning = false;
+      testCompleted = false;
+      totalWebhooksCount = 0;
+      retryingWebhooks.clear();
+      clearSavedResults();
+      clearInterval(durationInterval);
+      durationInterval = null;
+      startTime = null;
+      updateStats();
+      document.getElementById('resultsGrid').innerHTML = 
+        '<div class="no-results">Click "Run All Webhook Tests" to begin testing</div>';
+      document.getElementById('logsContainer').innerHTML = '';
+      document.getElementById('progressSection').classList.remove('visible');
+      document.getElementById('reportLinkSection').classList.remove('visible');
+      document.getElementById('resumeBtn').style.display = 'none';
+      document.getElementById('duration').textContent = '0s';
+    }
+
+    async function runManualTests() {
+      const input = document.getElementById('manualWebhookIds');
+      const webhookIds = input.value.trim();
+      
+      if (!webhookIds) {
+        alert('Please enter at least one webhook ID');
+        return;
+      }
+      
+      // Parse comma-separated IDs
+      const ids = webhookIds.split(',').map(id => id.trim()).filter(id => id.length > 0);
+      
+      if (ids.length === 0) {
+        alert('Please enter valid webhook IDs');
+        return;
+      }
+      
+      log(`Starting manual test for ${ids.length} webhook(s)...`, 'info');
+      await runTests(ids, `Testing ${ids.length} selected webhook(s)`);
+    }
+
+    async function runAllTests() {
+      console.log('runAllTests() called');
+      
+      const btn = document.getElementById('runAllBtn');
+      const btnText = document.getElementById('runBtnText');
+      
+      if (btn.disabled) {
+        console.log('Button disabled, returning');
+        return;
+      }
+      
+      if (isTestRunning) {
+        console.log('Test already running, returning');
+        return;
+      }
+      
+      // Only reset if user explicitly wants to start fresh
+      if (testResults.length > 0) {
+        console.log('testResults has data, asking for confirmation');
+        if (!confirm('This will clear current results. Continue?')) {
+          console.log('User cancelled, not starting test');
+          return;
+        }
+      }
+      
+      console.log('Calling runTests() with null (all webhooks)');
+      await runTests(null, 'Running all webhook tests');
+      console.log('runAllTests() finished');
+    }
+
+    async function runTests(specificWebhookIds = null, logMessage = 'Starting tests') {
+      console.log('=== runTests() START ===');
+      console.log('specificWebhookIds:', specificWebhookIds);
+      console.log('Current testResults.length:', testResults.length);
+      console.log('isTestRunning:', isTestRunning);
+      
+      const btn = document.getElementById('runAllBtn');
+      const btnText = document.getElementById('runBtnText');
+      
+      // Prevent multiple simultaneous runs
+      if (isTestRunning) {
+        console.log('Test already running, EXITING runTests()');
+        return;
+      }
+      
+      // Reset
+      console.log('runTests: Clearing testResults array');
+      testResults = [];
+      testCompleted = false;
+      retryingWebhooks.clear();
+      clearSavedResults();
+      clearInterval(durationInterval);
+      startTime = Date.now();
+      durationInterval = setInterval(updateDuration, 1000);
+      isTestRunning = true;
+      console.log('runTests: isTestRunning set to true');
+      
+      btn.disabled = true;
+      btnText.innerHTML = '⏳ Running Tests... <span class="spinner"></span>';
+      
+      document.getElementById('progressSection').classList.add('visible');
+      document.getElementById('reportLinkSection').classList.remove('visible');
+      document.getElementById('logsContainer').innerHTML = '';
+      document.getElementById('resultsGrid').innerHTML = '<div class="no-results">Waiting for results...</div>';
+      
+      try {
+        log(logMessage, 'info');
+        if (!specificWebhookIds) {
+          log('Fetching webhook list from API...', 'info');
+        } else {
+          log(`Testing ${specificWebhookIds.length} specific webhook(s)`, 'info');
+        }
+
+        const response = await fetch('http://localhost:3000/api/test-all', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ webhookIds: specificWebhookIds })
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value);
+          const lines = chunk.split('\n');
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = JSON.parse(line.slice(6));
+              
+              if (data.type === 'init') {
+                totalWebhooksCount = data.total;
+                log(`Found ${data.total} webhooks to test`, 'info');
+                updateProgress(0, data.total);
+                saveResults();
+              } else if (data.type === 'progress') {
+                log(`Testing: ${data.webhook} (${data.current}/${data.total})`, 'info');
+                updateProgress(data.current, data.total);
+              } else if (data.type === 'result') {
+                console.log('Received result:', data.result);
+                testResults.push(data.result);
+                console.log('testResults.length is now:', testResults.length);
+                const status = data.result.status === 'success' ? 'success' : 'error';
+                log(`${data.result.status === 'success' ? '✓' : '✗'} ${data.result.webhookId}`, status);
+                updateStats();
+                displayResults();
+                console.log('displayResults() called after result #', testResults.length);
+              } else if (data.type === 'complete') {
+                console.log('=== COMPLETE EVENT RECEIVED ===');
+                console.log('testResults.length:', testResults.length);
+                console.log('data.passed:', data.passed, 'data.failed:', data.failed);
+                
+                log(`Tests completed! ${data.passed} passed, ${data.failed} failed`, 'success');
+                
+                // Mark as completed FIRST
+                testCompleted = true;
+                isTestRunning = false;
+                
+                clearInterval(durationInterval);
+                durationInterval = null;
+                updateDuration();
+                console.log('Duration interval cleared and set to null');
+                totalWebhooksCount = 0;
+                
+                // DON'T clear saved results - keep them for page reload!
+                // Only clear isTestRunning flag
+                localStorage.removeItem('isTestRunning');
+                localStorage.removeItem('totalWebhooksCount');
+                
+                document.getElementById('resumeBtn').style.display = 'none';
+                
+                console.log('Before displaying results. testResults.length:', testResults.length);
+                
+                // Display results IMMEDIATELY (no timeout)
+                displayResults();
+                
+                // Ensure results section is visible
+                const resultsSection = document.getElementById('resultsSection');
+                if (resultsSection) {
+                  resultsSection.style.display = 'block';
+                  console.log('Results section forced to display: block');
+                }
+                
+                console.log('After displayResults(). Grid children:', document.getElementById('resultsGrid').children.length);
+                
+                // Keep progress section visible with final state
+                document.getElementById('progressSection').classList.add('visible');
+                
+                // Show report link
+                if (data.reportPath) {
+                  const reportFileName = data.reportPath.split('/').pop();
+                  document.getElementById('reportLink').href = `./artifacts/${reportFileName}`;
+                  document.getElementById('reportLinkSection').classList.add('visible');
+                  log(`Report saved: ${reportFileName}`, 'success');
+                  
+                  // Preload history dropdown for faster access
+                  loadHistoryReports();
+                }
+              } else if (data.type === 'error') {
+                log(`Error: ${data.message}`, 'error');
+              }
+            }
+          }
+        }
+
+      } catch (error) {
+        log(`Fatal error: ${error.message}`, 'error');
+        console.error('Error in runTests:', error);
+        isTestRunning = false;
+      } finally {
+        console.log('=== FINALLY BLOCK ===');
+        console.log('isTestRunning:', isTestRunning);
+        console.log('testCompleted:', testCompleted);
+        console.log('testResults.length:', testResults.length);
+        
+        btn.disabled = false;
+        btnText.textContent = '🚀 Run All Webhook Tests';
+        
+        // DON'T clear or hide anything in finally - results should persist!
+        console.log('Finally block complete. Results should be visible.');
+      }
+    }
+
+    async function resumeTests() {
+      const btn = document.getElementById('resumeBtn');
+      const runBtn = document.getElementById('runAllBtn');
+      
+      if (btn.disabled || runBtn.disabled) return;
+      
+      btn.disabled = true;
+      runBtn.disabled = true;
+      btn.textContent = '⏳ Resuming...';
+      isTestRunning = true;
+      
+      log('Resuming test from where it was interrupted...', 'info');
+      
+      // Get IDs of already tested webhooks
+      const testedWebhookIds = new Set(testResults.map(r => r.webhookId));
+      log(`Already tested: ${testedWebhookIds.size} webhooks`, 'info');
+      
+      document.getElementById('progressSection').classList.add('visible');
+      
+      try {
+        // Fetch all webhooks
+        log('Fetching full webhook list...', 'info');
+        const response = await fetch('http://localhost:3000/api/test-all', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let allWebhooks = [];
+        let receivingInit = true;
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value);
+          const lines = chunk.split('\n');
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = JSON.parse(line.slice(6));
+              
+              if (data.type === 'init') {
+                totalWebhooksCount = data.total;
+                log(`Total webhooks: ${data.total}`, 'info');
+                log(`Remaining to test: ${data.total - testedWebhookIds.size}`, 'info');
+                updateProgress(testedWebhookIds.size, data.total);
+                saveResults();
+                receivingInit = false;
+              } else if (data.type === 'result') {
+                // Only process if we haven't tested this webhook yet
+                if (!testedWebhookIds.has(data.result.webhookId)) {
+                  testResults.push(data.result);
+                  testedWebhookIds.add(data.result.webhookId);
+                  
+                  const status = data.result.status === 'success' ? 'success' : 'error';
+                  log(`${data.result.status === 'success' ? '✓' : '✗'} ${data.result.webhookId}`, status);
+                  
+                  updateStats();
+                  displayResults();
+                  updateProgress(testedWebhookIds.size, totalWebhooksCount);
+                }
+              } else if (data.type === 'progress') {
+                // Update progress
+                updateProgress(data.current, data.total);
+              } else if (data.type === 'complete') {
+                log(`Resume completed! Total: ${testedWebhookIds.size} webhooks`, 'success');
+                testCompleted = true;
+                isTestRunning = false;
+                clearInterval(durationInterval);
+                durationInterval = null;
+                updateDuration();
+                totalWebhooksCount = 0;
+                
+                // DON'T clear saved results - keep them for page reload!
+                localStorage.removeItem('isTestRunning');
+                localStorage.removeItem('totalWebhooksCount');
+                
+                btn.style.display = 'none';
+                
+                // Ensure final results are displayed with delay
+                setTimeout(() => {
+                  console.log('Resume complete, displaying final results');
+                  displayResults();
+                  
+                  const resultsSection = document.getElementById('resultsSection');
+                  if (resultsSection) {
+                    resultsSection.style.display = 'block';
+                  }
+                  
+                  resultsSection?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }, 100);
+                
+                // Keep progress section visible with final state
+                document.getElementById('progressSection').classList.add('visible');
+                
+                if (data.reportPath) {
+                  const reportFileName = data.reportPath.split('/').pop();
+                  document.getElementById('reportLink').href = `./artifacts/${reportFileName}`;
+                  document.getElementById('reportLinkSection').classList.add('visible');
+                  log(`Report saved: ${reportFileName}`, 'success');
+                  
+                  // Preload history dropdown for faster access
+                  loadHistoryReports();
+                }
+              } else if (data.type === 'error') {
+                log(`Error: ${data.message}`, 'error');
+              }
+            }
+          }
+        }
+
+      } catch (error) {
+        log(`Resume error: ${error.message}`, 'error');
+        console.error(error);
+        isTestRunning = false;
+      } finally {
+        btn.disabled = false;
+        runBtn.disabled = false;
+        btn.textContent = '▶️ Resume Test';
+      }
+    }
+  </script>
+</body>
+
+</html>

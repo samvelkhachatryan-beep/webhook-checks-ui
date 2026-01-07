@@ -1,0 +1,22 @@
+{
+  "name": "flow-api-test",
+  "version": "1.0.0",
+  "description": "Automation test suite for Picsart Magic Flow Webhooks",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:api": "vitest run tests/magicFlowWebhooks.spec.ts",
+    "test:manual": "vitest run tests/magicFlowWebhooks.spec.ts",
+    "test:watch": "vitest",
+    "server": "npx tsx src/server.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.27",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.0",
+    "vitest": "^1.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
