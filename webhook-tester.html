@@ -1425,20 +1425,15 @@
       if (history[index]) {
         const historicalTest = history[index];
 
-        // Load the historical results
-        testResults = historicalTest.results;
-        startTime = Date.now() - (parseInt(historicalTest.duration) * 1000);
+        // Generate HTML report for this historical test
+        const html = generateHistoricalReportHTML(historicalTest);
 
-        // Update UI
-        updateStats();
-        displayResults();
-        document.getElementById('duration').textContent = historicalTest.duration;
-
-        // Show progress section
-        document.getElementById('progressSection').classList.add('visible');
-
-        log(`Loaded historical test from ${historicalTest.date}`, 'info');
-        log(`${historicalTest.totalWebhooks} webhooks: ${historicalTest.passed} passed, ${historicalTest.failed} failed`, 'info');
+        // Open in new tab
+        const newTab = window.open('', '_blank');
+        if (newTab) {
+          newTab.document.write(html);
+          newTab.document.close();
+        }
 
         // Close dropdown
         const dropdown = document.getElementById('historyDropdown');
@@ -1446,6 +1441,444 @@
         dropdown.classList.remove('visible');
         icon.style.transform = 'rotate(0deg)';
       }
+    }
+
+    function generateWebhookSection(result) {
+      const statusClass = result.status === 'success' ? 'success' : 'failed';
+      const title = result.title || result.slug || result.webhookId;
+
+      let contentHTML = '';
+      if (result.status === 'success' && result.results && result.results.length > 0) {
+        contentHTML = '<div class="results-grid">';
+        result.results.forEach(item => {
+          const isImage = item.type.toLowerCase() === 'image';
+          const isVideo = item.type.toLowerCase() === 'video';
+          contentHTML += `
+            <div class="result-card">
+              <div class="media-preview">
+                ${isImage ? `<img src="${item.url}" alt="Preview" class="preview-image" loading="lazy" />` : ''}
+                ${isVideo ? `<video class="preview-video" muted loop playsinline preload="metadata"><source src="${item.url}" type="video/mp4">Your browser does not support video.</video>` : ''}
+              </div>
+              <div class="result-info">
+                <span class="type-badge ${item.type.toLowerCase()}">${item.type}</span>
+                <a href="${item.url}" target="_blank" rel="noopener noreferrer" class="url-link">${item.url.substring(0, 60)}...</a>
+              </div>
+            </div>
+          `;
+        });
+        contentHTML += '</div>';
+      } else if (result.error) {
+        contentHTML = `<div class="error-message">❌ ${escapeHtml(result.error)}</div>`;
+      }
+
+      return `
+        <section class="webhook-section">
+          <div class="webhook-header">
+            <div>
+              <span class="webhook-slug">${escapeHtml(title)}</span>
+              <br><span class="webhook-id">${escapeHtml(result.webhookId)}</span>
+            </div>
+            <span class="status-badge ${statusClass}">${statusClass === 'success' ? 'Passed' : 'Failed'}</span>
+          </div>
+          ${contentHTML}
+        </section>
+      `;
+    }
+
+    function generateFailedSections(failedResults) {
+      if (failedResults.length === 0) return '';
+
+      // Group by error
+      const groups = {};
+      failedResults.forEach(result => {
+        const errorKey = normalizeError(result.error || 'Unknown error');
+        if (!groups[errorKey]) {
+          groups[errorKey] = [];
+        }
+        groups[errorKey].push(result);
+      });
+
+      const sortedGroups = Object.entries(groups).sort((a, b) => b[1].length - a[1].length);
+
+      let html = '';
+      sortedGroups.forEach(([errorMsg, webhooks]) => {
+        const webhooksHTML = webhooks.map(r => generateWebhookSection(r)).join('');
+        html += `
+          <div class="error-category expanded">
+            <div class="error-category-header">
+              <span class="error-category-title">⚠️ ${escapeHtml(errorMsg)}</span>
+              <span class="error-category-count">${webhooks.length} webhook${webhooks.length > 1 ? 's' : ''}</span>
+            </div>
+            <div class="error-category-items">
+              ${webhooksHTML}
+            </div>
+          </div>
+        `;
+      });
+
+      return html;
+    }
+
+    function generateHistoricalReportHTML(testRun) {
+      const passedResults = testRun.results.filter(r => r.status === 'success');
+      const failedResults = testRun.results.filter(r => r.status === 'failed');
+
+      // Generate passed sections
+      const passedHTML = passedResults.map(result => generateWebhookSection(result)).join('');
+
+      // Generate failed sections (grouped by error)
+      const failedHTML = generateFailedSections(failedResults);
+
+      return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Results - ${testRun.date}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+  <style>
+    :root {
+      --bg-primary: #0a0a0f;
+      --bg-secondary: #12121a;
+      --bg-tertiary: #1a1a26;
+      --bg-card: #14141e;
+      --text-primary: #f0f0f5;
+      --text-secondary: #8888a0;
+      --accent-primary: #7c3aed;
+      --accent-secondary: #06b6d4;
+      --accent-gradient: linear-gradient(135deg, #7c3aed 0%, #06b6d4 100%);
+      --success: #10b981;
+      --error: #ef4444;
+      --border: rgba(255, 255, 255, 0.08);
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      line-height: 1.6;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+    .container { max-width: 1600px; margin: 0 auto; }
+    header {
+      text-align: center;
+      margin-bottom: 2rem;
+      padding: 3rem 2rem;
+      background: var(--bg-card);
+      border-radius: 24px;
+      border: 1px solid var(--border);
+      position: relative;
+      overflow: hidden;
+    }
+    header::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--accent-gradient);
+    }
+    h1 {
+      font-size: 3rem;
+      font-weight: 700;
+      background: var(--accent-gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 0.5rem;
+      letter-spacing: -0.02em;
+    }
+    .timestamp {
+      color: var(--text-secondary);
+      font-size: 0.9rem;
+      font-family: 'IBM Plex Mono', 'Courier New', Consolas, monospace;
+    }
+    .summary {
+      display: flex;
+      justify-content: center;
+      gap: 1.5rem;
+      margin-top: 2rem;
+      flex-wrap: wrap;
+    }
+    .summary-item {
+      padding: 1rem 2rem;
+      border-radius: 12px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      font-weight: 600;
+      font-size: 1.1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .summary-item.success {
+      border-color: var(--success);
+      color: var(--success);
+      box-shadow: 0 0 20px rgba(16, 185, 129, 0.15);
+    }
+    .summary-item.failure {
+      border-color: var(--error);
+      color: var(--error);
+      box-shadow: 0 0 20px rgba(239, 68, 68, 0.15);
+    }
+    .summary-item.total {
+      border-color: var(--accent-primary);
+      color: var(--text-primary);
+    }
+    .tabs-container { margin-bottom: 2rem; }
+    .tab-buttons {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+      background: var(--bg-card);
+      padding: 0.5rem;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      width: fit-content;
+    }
+    .tab-button {
+      padding: 0.75rem 1.5rem;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      border-radius: 12px;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .tab-button:hover {
+      color: var(--text-primary);
+      background: var(--bg-tertiary);
+    }
+    .tab-button.active {
+      background: var(--accent-gradient);
+      color: white;
+    }
+    .tab-button.success-tab.active { background: var(--success); }
+    .tab-button.failed-tab.active { background: var(--error); }
+    .tab-count {
+      background: rgba(255, 255, 255, 0.2);
+      padding: 0.15rem 0.5rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    .error-category { margin-bottom: 2rem; }
+    .error-category-header {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--error);
+      border-radius: 12px;
+      padding: 1rem 1.5rem;
+      margin-bottom: 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .error-category-header:hover { background: var(--bg-tertiary); }
+    .error-category-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--error);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .error-category-count {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--error);
+      padding: 0.25rem 0.75rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+    .error-category-items { display: none; padding-left: 1rem; }
+    .error-category.expanded .error-category-items { display: block; }
+    .error-category-header::after {
+      content: '▶';
+      font-size: 0.7rem;
+      color: var(--text-secondary);
+      transition: transform 0.2s;
+    }
+    .error-category.expanded .error-category-header::after { transform: rotate(90deg); }
+    .webhook-section {
+      margin-bottom: 1.5rem;
+      background: var(--bg-card);
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+    .webhook-header {
+      padding: 1.25rem 1.5rem;
+      background: var(--bg-tertiary);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    .webhook-slug {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .webhook-id {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 0.75rem;
+      color: var(--accent-secondary);
+      opacity: 0.8;
+    }
+    .status-badge {
+      padding: 0.35rem 1rem;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .status-badge.success {
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--success);
+      border: 1px solid var(--success);
+    }
+    .status-badge.failed {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--error);
+      border: 1px solid var(--error);
+    }
+    .error-message {
+      padding: 1.25rem 1.5rem;
+      background: rgba(239, 68, 68, 0.08);
+      color: var(--error);
+      font-size: 0.9rem;
+      border-left: 3px solid var(--error);
+    }
+    .results-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 1rem;
+      padding: 1.5rem;
+    }
+    .result-card {
+      background: var(--bg-tertiary);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+    .media-preview {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: var(--bg-primary);
+      overflow: hidden;
+    }
+    .preview-image, .preview-video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .preview-video { cursor: pointer; }
+    .result-info { padding: 1rem; }
+    .type-badge {
+      display: inline-block;
+      padding: 0.25rem 0.6rem;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      margin-bottom: 0.5rem;
+    }
+    .type-badge.image {
+      background: rgba(6, 182, 212, 0.15);
+      color: var(--accent-secondary);
+    }
+    .type-badge.video {
+      background: rgba(124, 58, 237, 0.15);
+      color: var(--accent-primary);
+    }
+    .url-link {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 0.75rem;
+      font-family: 'IBM Plex Mono', monospace;
+      word-break: break-all;
+      display: block;
+    }
+    .url-link:hover { color: var(--accent-secondary); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🎨 Magic Flow Results</h1>
+      <p class="timestamp">Generated: ${testRun.date}</p>
+      <div class="summary">
+        <div class="summary-item success">✓ ${testRun.passed} Passed</div>
+        <div class="summary-item failure">✗ ${testRun.failed} Failed</div>
+        <div class="summary-item total">📊 ${testRun.totalWebhooks} Total</div>
+      </div>
+    </header>
+
+    <div class="tabs-container">
+      <div class="tab-buttons">
+        <button type="button" class="tab-button success-tab active" data-tab="passed">
+          ✓ Passed <span class="tab-count">${testRun.passed}</span>
+        </button>
+        <button type="button" class="tab-button failed-tab" data-tab="failed">
+          ✗ Failed <span class="tab-count">${testRun.failed}</span>
+        </button>
+      </div>
+
+      <div id="passed" class="tab-content active">
+        ${passedHTML || '<div style="padding: 3rem; text-align: center; color: var(--text-secondary);">No passed tests</div>'}
+      </div>
+
+      <div id="failed" class="tab-content">
+        ${failedHTML || '<div style="padding: 3rem; text-align: center; color: var(--text-secondary);">No failed tests</div>'}
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Tab switching
+    document.querySelectorAll('.tab-button').forEach(button => {
+      button.addEventListener('click', function() {
+        const tabId = this.dataset.tab;
+        document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+        this.classList.add('active');
+        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+      });
+    });
+
+    // Error category toggle
+    document.querySelectorAll('.error-category-header').forEach(header => {
+      header.addEventListener('click', function() {
+        this.parentElement.classList.toggle('expanded');
+      });
+    });
+
+    // Play video on hover
+    document.querySelectorAll('.preview-video').forEach(video => {
+      video.addEventListener('mouseenter', function() { this.play().catch(() => {}); });
+      video.addEventListener('mouseleave', function() { this.pause(); this.currentTime = 0; });
+    });
+  <` + `/script>
+<` + `/body>
+<` + `/html>`;
     }
 
     // Close dropdown when clicking outside
@@ -1586,7 +2019,7 @@
 
         if (!response.ok) {
           const errorText = await response.text();
-          let errorMessage = `Server Error (${response.status})`;
+          let errorMessage = `Server Error(${response.status})`;
 
           // Parse error messages for better UX
           if (response.status === 401) {
