@@ -1,0 +1,12 @@
+node_modules
+.git
+tests
+*.spec.ts
+vitest.config.ts
+tsconfig.json
+src/server.ts
+README.md
+USAGE.md
+FEATURES.md
+.gitignore
+

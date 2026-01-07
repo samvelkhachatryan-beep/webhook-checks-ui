@@ -1,0 +1,216 @@
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { fetchCmsSchema, buildParamsFromSchema, submitMagicFlowWebhook, pollJobResult, isMediaResult, fetchAllFlowLandings } from '../src/api/client';
+import { MediaRecord, FlowLandingItem, WebhookTestResult } from '../src/types';
+import { generateDatedReport } from '../src/utils/htmlReport';
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // CORS headers first
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  // Handle OPTIONS
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
+
+  // Only allow POST
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  // Set up SSE headers
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+
+  function sendEvent(data: any) {
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+  }
+
+  try {
+    // Get optional specific webhook IDs from request body
+    const { webhookIds } = req.body || {};
+    const specificWebhookIds: string[] | null = webhookIds || null;
+
+    // Fetch all webhooks or use specific IDs
+    sendEvent({ type: 'init', message: 'Fetching webhooks...' });
+
+    let webhooks: Array<{ webhookId: string; slug?: string; title?: string; flowType?: 'image' | 'video' }>;
+
+    if (specificWebhookIds && specificWebhookIds.length > 0) {
+      // Manual mode: Test only specified webhook IDs
+      sendEvent({ type: 'init', message: `Testing ${specificWebhookIds.length} specific webhooks...` });
+      webhooks = specificWebhookIds.map(id => ({ webhookId: id }));
+    } else {
+      // Auto mode: Fetch all webhooks from API
+      const flowLandings = await fetchAllFlowLandings();
+      webhooks = flowLandings
+        .filter((landing: FlowLandingItem) => landing.flow?.flowId)
+        .map((landing: FlowLandingItem) => ({
+          webhookId: landing.flow.flowId,
+          slug: landing.slug,
+          title: landing.title,
+          flowType: landing.type
+        }));
+    }
+
+    const total = webhooks.length;
+    sendEvent({ type: 'init', total });
+
+    let passed = 0;
+    let failed = 0;
+    const allResults: WebhookTestResult[] = [];
+
+    // Continuous queue-based concurrency (maintain 50 running at all times)
+    const concurrency = 50;
+    let currentIndex = 0;
+    let activeCount = 0;
+    const runningTasks = new Set<Promise<void>>();
+
+    // Function to test a single webhook
+    async function testWebhook(webhook: typeof webhooks[0], index: number) {
+      const displayName = webhook.slug || webhook.webhookId;
+      const startTime = Date.now();
+
+      sendEvent({
+        type: 'progress',
+        current: index + 1,
+        total,
+        webhook: displayName
+      });
+
+      try {
+        // Fetch schema
+        const schemaResponse = await fetchCmsSchema(webhook.webhookId);
+        const params = buildParamsFromSchema(schemaResponse.data);
+
+        // Submit webhook
+        const submitResponse = await submitMagicFlowWebhook(webhook.webhookId, params);
+        const jobId = submitResponse.response.id;
+
+        // Poll for results
+        const jobResult = await pollJobResult(jobId);
+
+        // Extract media results
+        const results: Array<{ type: string; url: string }> = [];
+        if (jobResult.response.result) {
+          for (const item of jobResult.response.result) {
+            if (isMediaResult(item)) {
+              const mediaData = item.result as MediaRecord;
+              results.push({
+                type: item.type,
+                url: mediaData.url
+              });
+            }
+          }
+        }
+
+        const durationMs = Date.now() - startTime;
+        passed++;
+
+        const testResult: WebhookTestResult = {
+          webhookId: webhook.webhookId,
+          slug: webhook.slug,
+          title: webhook.title,
+          flowType: webhook.flowType,
+          success: true,
+          results,
+          durationMs,
+          logs: []
+        };
+
+        allResults.push(testResult);
+
+        sendEvent({
+          type: 'result',
+          result: {
+            webhookId: webhook.webhookId,
+            slug: webhook.slug,
+            title: webhook.title,
+            status: 'success',
+            results
+          }
+        });
+
+      } catch (error) {
+        const durationMs = Date.now() - startTime;
+        failed++;
+        const errorMsg = error instanceof Error ? error.message : String(error);
+
+        const testResult: WebhookTestResult = {
+          webhookId: webhook.webhookId,
+          slug: webhook.slug,
+          title: webhook.title,
+          flowType: webhook.flowType,
+          success: false,
+          error: errorMsg,
+          results: [],
+          durationMs,
+          logs: []
+        };
+
+        allResults.push(testResult);
+
+        sendEvent({
+          type: 'result',
+          result: {
+            webhookId: webhook.webhookId,
+            slug: webhook.slug,
+            title: webhook.title,
+            status: 'failed',
+            error: errorMsg
+          }
+        });
+      }
+    }
+
+    // Start initial batch of webhooks
+    while (currentIndex < Math.min(concurrency, webhooks.length)) {
+      const index = currentIndex++;
+      const task = testWebhook(webhooks[index], index).then(() => {
+        activeCount--;
+        runningTasks.delete(task);
+      });
+      runningTasks.add(task);
+      activeCount++;
+    }
+
+    // Process remaining webhooks as slots become available
+    while (currentIndex < webhooks.length || runningTasks.size > 0) {
+      if (runningTasks.size > 0) {
+        // Wait for at least one task to complete
+        await Promise.race(runningTasks);
+
+        // Start new task if there are more webhooks to test
+        if (currentIndex < webhooks.length) {
+          const index = currentIndex++;
+          const task = testWebhook(webhooks[index], index).then(() => {
+            activeCount--;
+            runningTasks.delete(task);
+          });
+          runningTasks.add(task);
+          activeCount++;
+        }
+      }
+    }
+
+    // Generate dated HTML report
+    const reportPath = generateDatedReport(allResults);
+
+    sendEvent({
+      type: 'complete',
+      passed,
+      failed,
+      total,
+      reportPath
+    });
+
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    sendEvent({ type: 'error', message: errorMsg });
+  }
+
+  res.end();
+}
+
