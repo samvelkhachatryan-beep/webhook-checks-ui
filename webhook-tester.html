@@ -652,6 +652,15 @@
       margin-bottom: 0.5rem;
     }
 
+    .media-preview video {
+      width: 100%;
+      max-height: 200px;
+      object-fit: cover;
+      border-radius: 6px;
+      margin-bottom: 0.5rem;
+      background: var(--bg-primary);
+    }
+
     .media-link {
       font-size: 0.7rem;
       color: var(--accent);
@@ -817,6 +826,17 @@
   </div>
 
   <script>
+    // Auto-detect environment and set API base URL
+    const isLocal = window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1' ||
+      window.location.hostname === '';
+    const API_BASE_URL = isLocal
+      ? 'http://localhost:3000'
+      : 'https://webhook-checks-ui.vercel.app';
+
+    console.log('Environment:', isLocal ? 'LOCAL' : 'PRODUCTION');
+    console.log('API Base URL:', API_BASE_URL);
+
     let testResults = [];
     let currentFilter = 'all';
     let startTime = null;
@@ -826,6 +846,44 @@
     let totalWebhooksCount = 0;
     let testCompleted = false; // Flag to prevent clearing after completion
     const retryingWebhooks = new Set(); // Track webhooks currently being retried
+
+    // Client-side test history
+    function saveTestToHistory() {
+      try {
+        const history = JSON.parse(localStorage.getItem('testHistory') || '[]');
+        const testRun = {
+          id: Date.now(),
+          timestamp: new Date().toISOString(),
+          date: new Date().toLocaleString(),
+          totalWebhooks: testResults.length,
+          passed: testResults.filter(r => r.status === 'success').length,
+          failed: testResults.filter(r => r.status === 'failed').length,
+          duration: document.getElementById('duration').textContent,
+          results: testResults
+        };
+
+        history.unshift(testRun); // Add to beginning
+
+        // Keep only last 50 test runs
+        if (history.length > 50) {
+          history.splice(50);
+        }
+
+        localStorage.setItem('testHistory', JSON.stringify(history));
+        console.log('Test saved to history. Total history:', history.length);
+      } catch (e) {
+        console.error('Failed to save test to history:', e);
+      }
+    }
+
+    function loadTestHistory() {
+      try {
+        return JSON.parse(localStorage.getItem('testHistory') || '[]');
+      } catch (e) {
+        console.error('Failed to load test history:', e);
+        return [];
+      }
+    }
 
     // Restore previous session on load
     window.addEventListener('DOMContentLoaded', () => {
@@ -935,9 +993,24 @@
     }
 
     function updateDuration() {
+      if (startTime && !testCompleted) {
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        document.getElementById('duration').textContent = elapsed + 's';
+      }
+    }
+
+    function stopDuration() {
+      console.log('Stopping duration timer');
+      if (durationInterval) {
+        clearInterval(durationInterval);
+        durationInterval = null;
+        console.log('Duration interval cleared');
+      }
+      // Update one final time to show final duration
       if (startTime) {
         const elapsed = Math.floor((Date.now() - startTime) / 1000);
         document.getElementById('duration').textContent = elapsed + 's';
+        console.log('Final duration:', elapsed + 's');
       }
     }
 
@@ -1092,11 +1165,22 @@
 
       let html = '<div class="media-grid">';
       results.forEach(item => {
+        const isImage = item.type.toLowerCase() === 'image';
+        const isVideo = item.type.toLowerCase() === 'video';
+
         html += `
           <div class="media-item">
             <div class="media-type">${escapeHtml(item.type)}</div>
-            ${item.type === 'image' ?
-            `<div class="media-preview"><img src="${escapeHtml(item.url)}" alt="Result" /></div>` :
+            ${isImage ?
+            `<div class="media-preview"><img src="${escapeHtml(item.url)}" alt="Result" loading="lazy" /></div>` :
+            ''}
+            ${isVideo ?
+            `<div class="media-preview">
+                <video controls muted loop preload="metadata" style="width: 100%; border-radius: 6px;">
+                  <source src="${escapeHtml(item.url)}" type="video/mp4">
+                  Your browser does not support video playback.
+                </video>
+              </div>` :
             ''}
             <a href="${escapeHtml(item.url)}" target="_blank" class="media-link">
               ${escapeHtml(item.url)}
@@ -1158,7 +1242,7 @@
       card.offsetHeight;
 
       try {
-        const response = await fetch('https://webhook-checks-ui.vercel.app/api/test', {
+        const response = await fetch(`${API_BASE_URL}/api/test`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ webhookId })
@@ -1288,52 +1372,34 @@
 
     async function loadHistoryReports() {
       const content = document.getElementById('historyDropdownContent');
-      content.innerHTML = '<div class="history-loading">Loading reports...</div>';
+      content.innerHTML = '<div class="history-loading">Loading history...</div>';
 
       try {
-        const response = await fetch('https://webhook-checks-ui.vercel.app/api/reports');
-        if (!response.ok) {
-          let errorMessage = 'Failed to load reports';
+        // Load from client-side localStorage (works on Vercel!)
+        const history = loadTestHistory();
 
-          if (response.status === 404) {
-            errorMessage = 'Reports endpoint not found';
-          } else if (response.status === 500) {
-            errorMessage = 'Server error loading reports';
-          } else if (response.status === 503) {
-            errorMessage = 'Service temporarily unavailable';
-          }
-
-          throw new Error(errorMessage);
-        }
-
-        const reports = await response.json();
-
-        if (reports.length === 0) {
-          content.innerHTML = '<div class="history-empty">No test reports yet</div>';
+        if (history.length === 0) {
+          content.innerHTML = '<div class="history-empty">No test history yet. Run some tests to build history!</div>';
           return;
         }
 
-        // Show all reports (no limit)
-        const latestReports = reports;
-
         let html = '';
-        latestReports.forEach(report => {
-          const date = new Date(report.created);
-          const dateStr = date.toLocaleString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          });
-          const sizeKB = (report.size / 1024).toFixed(1);
+        history.forEach((testRun, index) => {
+          const passedPercent = testRun.totalWebhooks > 0
+            ? Math.round((testRun.passed / testRun.totalWebhooks) * 100)
+            : 0;
 
           html += `
-            <div class="history-item" onclick="openReport('${escapeHtml(report.filename)}')">
+            <div class="history-item" onclick="loadHistoricalTest(${index})">
               <div class="history-item-info">
-                <div class="history-item-name">${escapeHtml(report.filename)}</div>
-                <div class="history-item-date">${dateStr}</div>
+                <div class="history-item-name">${escapeHtml(testRun.date)}</div>
+                <div class="history-item-date">
+                  ${testRun.totalWebhooks} webhooks • 
+                  <span style="color: var(--success);">${testRun.passed} passed</span> • 
+                  <span style="color: var(--error);">${testRun.failed} failed</span>
+                </div>
               </div>
-              <div class="history-item-size">${sizeKB} KB</div>
+              <div class="history-item-size">${passedPercent}% ✓</div>
             </div>
           `;
         });
@@ -1344,7 +1410,7 @@
           <div class="history-empty" style="padding: 2rem;">
             <div style="font-size: 2rem; margin-bottom: 0.5rem;">⚠️</div>
             <div style="color: var(--error); font-weight: 600; margin-bottom: 0.5rem;">
-              Failed to Load Reports
+              Failed to Load History
             </div>
             <div style="font-size: 0.85rem; color: var(--text-secondary);">
               ${escapeHtml(error.message)}
@@ -1354,12 +1420,32 @@
       }
     }
 
-    function openReport(filename) {
-      window.open(`./artifacts/${filename}`, '_blank');
-      const dropdown = document.getElementById('historyDropdown');
-      const icon = document.getElementById('historyDropdownIcon');
-      dropdown.classList.remove('visible');
-      icon.style.transform = 'rotate(0deg)';
+    function loadHistoricalTest(index) {
+      const history = loadTestHistory();
+      if (history[index]) {
+        const historicalTest = history[index];
+
+        // Load the historical results
+        testResults = historicalTest.results;
+        startTime = Date.now() - (parseInt(historicalTest.duration) * 1000);
+
+        // Update UI
+        updateStats();
+        displayResults();
+        document.getElementById('duration').textContent = historicalTest.duration;
+
+        // Show progress section
+        document.getElementById('progressSection').classList.add('visible');
+
+        log(`Loaded historical test from ${historicalTest.date}`, 'info');
+        log(`${historicalTest.totalWebhooks} webhooks: ${historicalTest.passed} passed, ${historicalTest.failed} failed`, 'info');
+
+        // Close dropdown
+        const dropdown = document.getElementById('historyDropdown');
+        const icon = document.getElementById('historyDropdownIcon');
+        dropdown.classList.remove('visible');
+        icon.style.transform = 'rotate(0deg)';
+      }
     }
 
     // Close dropdown when clicking outside
@@ -1383,9 +1469,11 @@
       totalWebhooksCount = 0;
       retryingWebhooks.clear();
       clearSavedResults();
-      clearInterval(durationInterval);
-      durationInterval = null;
+
+      // Stop duration timer
+      stopDuration();
       startTime = null;
+
       updateStats();
       document.getElementById('resultsGrid').innerHTML =
         '<div class="no-results">Click "Run All Webhook Tests" to begin testing</div>';
@@ -1490,7 +1578,7 @@
           log(`Testing ${specificWebhookIds.length} specific webhook(s)`, 'info');
         }
 
-        const response = await fetch('https://webhook-checks-ui.vercel.app/api/test-all', {
+        const response = await fetch(`${API_BASE_URL}/api/test-all`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ webhookIds: specificWebhookIds })
@@ -1565,10 +1653,8 @@
                 testCompleted = true;
                 isTestRunning = false;
 
-                clearInterval(durationInterval);
-                durationInterval = null;
-                updateDuration();
-                console.log('Duration interval cleared and set to null');
+                // Stop duration timer
+                stopDuration();
                 totalWebhooksCount = 0;
 
                 // DON'T clear saved results - keep them for page reload!
@@ -1595,16 +1681,19 @@
                 // Keep progress section visible with final state
                 document.getElementById('progressSection').classList.add('visible');
 
-                // Show report link
+                // Save test to history
+                saveTestToHistory();
+
+                // Show report link if available
                 if (data.reportPath) {
                   const reportFileName = data.reportPath.split('/').pop();
                   document.getElementById('reportLink').href = `./artifacts/${reportFileName}`;
                   document.getElementById('reportLinkSection').classList.add('visible');
                   log(`Report saved: ${reportFileName}`, 'success');
-
-                  // Preload history dropdown for faster access
-                  loadHistoryReports();
                 }
+
+                // Preload history dropdown for faster access
+                loadHistoryReports();
               } else if (data.type === 'error') {
                 log(`Error: ${data.message}`, 'error');
               }
@@ -1687,7 +1776,7 @@
       try {
         // Fetch all webhooks
         log('Fetching full webhook list...', 'info');
-        const response = await fetch('https://webhook-checks-ui.vercel.app/api/test-all', {
+        const response = await fetch(`${API_BASE_URL}/api/test-all`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' }
         });
@@ -1739,9 +1828,9 @@
                 log(`Resume completed! Total: ${testedWebhookIds.size} webhooks`, 'success');
                 testCompleted = true;
                 isTestRunning = false;
-                clearInterval(durationInterval);
-                durationInterval = null;
-                updateDuration();
+
+                // Stop duration timer
+                stopDuration();
                 totalWebhooksCount = 0;
 
                 // DON'T clear saved results - keep them for page reload!
@@ -1766,15 +1855,18 @@
                 // Keep progress section visible with final state
                 document.getElementById('progressSection').classList.add('visible');
 
+                // Save test to history
+                saveTestToHistory();
+
                 if (data.reportPath) {
                   const reportFileName = data.reportPath.split('/').pop();
                   document.getElementById('reportLink').href = `./artifacts/${reportFileName}`;
                   document.getElementById('reportLinkSection').classList.add('visible');
                   log(`Report saved: ${reportFileName}`, 'success');
-
-                  // Preload history dropdown for faster access
-                  loadHistoryReports();
                 }
+
+                // Preload history dropdown for faster access
+                loadHistoryReports();
               } else if (data.type === 'error') {
                 log(`Error: ${data.message}`, 'error');
               }

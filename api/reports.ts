@@ -22,9 +22,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const artifactsDir = join(process.cwd(), 'artifacts');
 
     // Check if artifacts directory exists
-    // Note: On Vercel, this will be ephemeral and may not persist between function calls
+    // Note: On Vercel, file system is read-only and ephemeral
+    // Reports won't persist - this is expected behavior
     if (!existsSync(artifactsDir)) {
-      console.log('Artifacts directory not found, returning empty array');
+      console.log('Artifacts directory not found (expected on Vercel)');
       return res.status(200).json([]);
     }
 
@@ -45,7 +46,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(200).json(files);
   } catch (error) {
     console.error('Error reading reports:', error);
-    // Return empty array instead of error for better UX
+    // Return empty array - this is expected on Vercel (read-only filesystem)
     res.status(200).json([]);
   }
 }

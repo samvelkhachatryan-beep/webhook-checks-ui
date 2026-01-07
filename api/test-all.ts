@@ -27,7 +27,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Dynamically import to avoid module resolution issues
   const clientModule = await import('../src/api/client.js');
   const { fetchCmsSchema, buildParamsFromSchema, submitMagicFlowWebhook, pollJobResult, isMediaResult, fetchAllFlowLandings } = clientModule;
-  
+
   const htmlReportModule = await import('../src/utils/htmlReport.js');
   const { generateDatedReport } = htmlReportModule;
   // CORS headers first
@@ -221,8 +221,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    // Generate dated HTML report
-    const reportPath = generateDatedReport(allResults);
+    // Generate dated HTML report (skip on Vercel - file system is read-only)
+    let reportPath = null;
+    try {
+      reportPath = generateDatedReport(allResults);
+    } catch (error) {
+      console.log('Report generation skipped (read-only filesystem):', error);
+      // This is expected on Vercel - reports are client-side only
+    }
 
     sendEvent({
       type: 'complete',
