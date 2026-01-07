@@ -713,5 +713,6 @@ const server = createServer((req, res) => {
 
 server.listen(PORT, () => {
   console.log('🚀 Webhook Tester running at http://localhost:' + PORT);
-  console.log('   Enter a webhook ID in the browser to test it');
+  console.log('   Local development server');
+  console.log('   Production: https://webhook-checks-ui.vercel.app');
 });

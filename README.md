@@ -56,7 +56,7 @@ The easiest way to run tests is through the web interface:
 npm run server
 
 # Open in browser
-open http://localhost:3000
+open https://webhook-checks-ui.vercel.app
 ```
 
 Or open the standalone HTML file:

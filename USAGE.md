@@ -11,7 +11,7 @@ The easiest way to test webhooks with a beautiful UI:
 npm run server
 
 # 2. Open in browser
-open http://localhost:3000
+open https://webhook-checks-ui.vercel.app
 ```
 
 Or use the standalone HTML file:
@@ -62,7 +62,7 @@ WEBHOOK_IDS="id1,id2,id3" npm test
 
 ### Built-in Server Interface
 
-The server at `http://localhost:3000` includes:
+The server at `https://webhook-checks-ui.vercel.app` includes:
 
 - Single webhook testing
 - All webhook testing (via `/api/test-all`)
@@ -75,7 +75,7 @@ The server at `http://localhost:3000` includes:
 ### 1. Test Single Webhook
 
 ```bash
-POST http://localhost:3000/api/test
+POST https://webhook-checks-ui.vercel.app/api/test
 Content-Type: application/json
 
 {
@@ -101,7 +101,7 @@ Content-Type: application/json
 ### 2. Test All Webhooks (SSE Stream)
 
 ```bash
-POST http://localhost:3000/api/test-all
+POST https://webhook-checks-ui.vercel.app/api/test-all
 ```
 
 **Response:** Server-Sent Events stream with:
@@ -281,7 +281,7 @@ npm install
 
 ## 🔗 Quick Links
 
-- **Web Interface**: http://localhost:3000
+- **Web Interface**: https://webhook-checks-ui.vercel.app
 - **Standalone Tester**: `webhook-tester.html`
 - **API Documentation**: See `README.md`
 - **Source Code**: `src/` directory
