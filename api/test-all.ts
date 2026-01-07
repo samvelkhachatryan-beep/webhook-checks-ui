@@ -1,7 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { fetchCmsSchema, buildParamsFromSchema, submitMagicFlowWebhook, pollJobResult, isMediaResult, fetchAllFlowLandings } from '../src/api/client';
-import { MediaRecord, FlowLandingItem, WebhookTestResult } from '../src/types';
-import { generateDatedReport } from '../src/utils/htmlReport';
+
+// Import statements will be resolved by Vercel's build system
+const { fetchCmsSchema, buildParamsFromSchema, submitMagicFlowWebhook, pollJobResult, isMediaResult, fetchAllFlowLandings } = require('../src/api/client');
+const { generateDatedReport } = require('../src/utils/htmlReport');
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // CORS headers first

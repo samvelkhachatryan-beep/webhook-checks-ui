@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { existsSync, readdirSync, statSync } from 'fs';
-import { join } from 'path';
+const { existsSync, readdirSync, statSync } = require('fs');
+const { join } = require('path');
 
 export default function handler(req: VercelRequest, res: VercelResponse) {
   // CORS headers first

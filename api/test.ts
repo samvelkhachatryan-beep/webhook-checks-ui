@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { fetchCmsSchema, buildParamsFromSchema, submitMagicFlowWebhook, pollJobResult, isMediaResult } from '../src/api/client';
-import { MediaRecord } from '../src/types';
+
+// Import using require for better Vercel compatibility
+const { fetchCmsSchema, buildParamsFromSchema, submitMagicFlowWebhook, pollJobResult, isMediaResult } = require('../src/api/client');
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // CORS headers first
@@ -19,7 +20,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const { webhookId } = req.body;
-  
+
   if (!webhookId) {
     return res.status(400).json({ error: 'webhookId is required' });
   }
@@ -45,7 +46,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     logs.push('Job completed with ' + (jobResult.response.result?.length || 0) + ' results');
 
     const results: Array<{ type: string; url: string }> = [];
-    
+
     if (jobResult.response.result) {
       for (const item of jobResult.response.result) {
         if (isMediaResult(item)) {
@@ -63,7 +64,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
     logs.push('Error: ' + errorMsg);
-    
+
     res.status(200).json({ success: false, error: errorMsg, logs });
   }
 }
