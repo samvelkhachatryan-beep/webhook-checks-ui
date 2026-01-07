@@ -1,9 +1,13 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-// Import using require for better Vercel compatibility
-const { fetchCmsSchema, buildParamsFromSchema, submitMagicFlowWebhook, pollJobResult, isMediaResult } = require('../src/api/client');
+interface MediaRecord {
+  url: string;
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // Dynamically import to avoid module resolution issues
+  const clientModule = await import('../src/api/client.js');
+  const { fetchCmsSchema, buildParamsFromSchema, submitMagicFlowWebhook, pollJobResult, isMediaResult } = clientModule;
   // CORS headers first
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');

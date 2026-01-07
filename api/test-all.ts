@@ -1,10 +1,35 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-// Import statements will be resolved by Vercel's build system
-const { fetchCmsSchema, buildParamsFromSchema, submitMagicFlowWebhook, pollJobResult, isMediaResult, fetchAllFlowLandings } = require('../src/api/client');
-const { generateDatedReport } = require('../src/utils/htmlReport');
+interface FlowLandingItem {
+  flow: { flowId: string };
+  slug?: string;
+  title?: string;
+  type?: 'image' | 'video';
+}
+
+interface WebhookTestResult {
+  webhookId: string;
+  slug?: string;
+  title?: string;
+  flowType?: 'image' | 'video';
+  success: boolean;
+  results: Array<{ type: string; url: string }>;
+  error?: string;
+  durationMs: number;
+  logs: string[];
+}
+
+interface MediaRecord {
+  url: string;
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // Dynamically import to avoid module resolution issues
+  const clientModule = await import('../src/api/client.js');
+  const { fetchCmsSchema, buildParamsFromSchema, submitMagicFlowWebhook, pollJobResult, isMediaResult, fetchAllFlowLandings } = clientModule;
+  
+  const htmlReportModule = await import('../src/utils/htmlReport.js');
+  const { generateDatedReport } = htmlReportModule;
   // CORS headers first
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
