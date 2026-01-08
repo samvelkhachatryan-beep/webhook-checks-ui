@@ -3,7 +3,9 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+  <meta name="theme-color" content="#0a0a0a">
+  <meta name="mobile-web-app-capable" content="yes">
   <title>Magic Flow Webhook Tester</title>
   <style>
     :root {
@@ -26,12 +28,19 @@
       box-sizing: border-box;
     }
 
+    html {
+      overflow-x: hidden;
+    }
+
     body {
       font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
       background: var(--bg-primary);
       color: var(--text-primary);
       min-height: 100vh;
       padding: 2rem;
+      overflow-x: hidden;
+      width: 100%;
+      max-width: 100vw;
     }
 
     .container {
@@ -722,6 +731,399 @@
     ::-webkit-scrollbar-thumb:hover {
       background: var(--text-secondary);
     }
+
+    /* Mobile Responsive Styles */
+    @media (max-width: 768px) {
+      body {
+        padding: 1rem;
+      }
+
+      .container {
+        max-width: 100%;
+      }
+
+      h1 {
+        font-size: 1.75rem;
+        margin-bottom: 1rem;
+      }
+
+      .header {
+        padding: 1.5rem 1rem;
+      }
+
+      .input-section {
+        padding: 1rem;
+        margin-bottom: 1rem;
+      }
+
+      .input-group {
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+
+      .input-group input {
+        width: 100%;
+      }
+
+      .manual-test-row {
+        flex-direction: column !important;
+        gap: 0.75rem !important;
+      }
+
+      .manual-input {
+        width: 100% !important;
+        min-width: 100% !important;
+        flex: none !important;
+      }
+
+      .test-selected-btn {
+        width: 100%;
+        padding: 0.75rem 1rem !important;
+      }
+
+      .control-buttons {
+        flex-direction: column;
+        gap: 0.75rem;
+        align-items: stretch;
+      }
+
+      .control-buttons button {
+        width: 100%;
+        justify-content: center;
+      }
+
+      .button-group {
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+
+      .button-group button {
+        width: 100%;
+      }
+
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+        margin-bottom: 1.5rem;
+      }
+
+      .stat-card {
+        padding: 1rem;
+        min-height: auto;
+      }
+
+      .stat-value {
+        font-size: 1.75rem;
+        margin-bottom: 0.25rem;
+      }
+
+      .stat-label {
+        font-size: 0.75rem;
+        letter-spacing: 0.5px;
+      }
+
+      .results-section {
+        padding: 1rem;
+      }
+
+      .results-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+      }
+
+      .results-header h2 {
+        font-size: 1.25rem;
+        width: 100%;
+      }
+
+      .results-title {
+        font-size: 1.25rem;
+      }
+
+      .filter-buttons {
+        width: 100%;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        justify-content: stretch;
+      }
+
+      .filter-btn {
+        flex: 1 1 calc(50% - 0.25rem);
+        min-width: calc(50% - 0.25rem);
+        justify-content: center;
+        padding: 0.65rem 0.75rem;
+        font-size: 0.85rem;
+      }
+
+      .no-results {
+        padding: 2rem 1rem;
+        font-size: 0.9rem;
+      }
+
+      .results-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+      }
+
+      .result-card {
+        margin-bottom: 1rem;
+      }
+
+      .card-header {
+        padding: 1rem;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.75rem;
+      }
+
+      .card-title {
+        font-size: 1rem;
+      }
+
+      .card-badges {
+        flex-wrap: wrap;
+        width: 100%;
+      }
+
+      .result-content {
+        padding: 1rem;
+      }
+
+      .media-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .progress-section {
+        padding: 1rem;
+        border-radius: 8px;
+      }
+
+      .progress-bar-container {
+        margin-bottom: 0.75rem;
+      }
+
+      .progress-text {
+        font-size: 0.85rem;
+        margin-bottom: 0.75rem;
+        word-break: break-word;
+      }
+
+      .logs-container {
+        font-size: 0.7rem;
+        max-height: 200px;
+        line-height: 1.4;
+      }
+
+      .history-dropdown {
+        min-width: 95vw;
+        max-width: 95vw;
+        right: auto;
+        left: 50%;
+        transform: translateX(-50%);
+      }
+
+      /* Touch-friendly tap targets (minimum 44x44px) */
+      button {
+        min-height: 44px;
+        touch-action: manipulation;
+      }
+
+      .retry-btn,
+      .filter-btn {
+        min-height: 44px;
+      }
+
+      .report-link-section {
+        font-size: 0.85rem;
+      }
+
+      #shareReportBtn {
+        width: 100%;
+        margin-top: 0.75rem;
+      }
+    }
+
+    /* Extra small mobile devices */
+    @media (max-width: 480px) {
+      body {
+        padding: 0.5rem;
+      }
+
+      h1 {
+        font-size: 1.5rem;
+      }
+
+      .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+      }
+
+      .stat-card {
+        padding: 0.85rem;
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .stat-value {
+        font-size: 1.75rem;
+        order: 2;
+      }
+
+      .stat-label {
+        font-size: 0.8rem;
+        order: 1;
+        text-align: left;
+      }
+
+      .filter-btn {
+        flex: 1 1 100%;
+        min-width: 100%;
+        max-width: 100%;
+        font-size: 0.85rem;
+      }
+
+      .results-section {
+        padding: 0.75rem;
+      }
+
+      .results-header {
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+      }
+
+      .results-header h2 {
+        font-size: 1.1rem;
+      }
+
+      .results-title {
+        font-size: 1.1rem;
+      }
+
+      .no-results {
+        padding: 1.5rem 0.75rem;
+        font-size: 0.85rem;
+        line-height: 1.5;
+      }
+
+      .manual-test-row {
+        gap: 0.5rem !important;
+      }
+
+      .manual-input {
+        font-size: 0.85rem !important;
+        padding: 0.65rem 0.85rem !important;
+      }
+
+      .test-selected-btn {
+        font-size: 0.85rem;
+        padding: 0.65rem 0.85rem !important;
+      }
+
+      .card-badges {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+      }
+
+      .stat-card {
+        padding: 0.75rem;
+      }
+
+      .stat-value {
+        font-size: 1.5rem;
+      }
+
+      button {
+        padding: 0.65rem 1rem;
+        font-size: 0.9rem;
+      }
+
+      .input-section {
+        padding: 0.75rem;
+      }
+
+      .progress-section {
+        padding: 0.75rem;
+        border-radius: 8px;
+      }
+
+      .progress-text {
+        font-size: 0.8rem;
+      }
+
+      .result-card {
+        border-radius: 8px;
+      }
+
+      .card-header {
+        padding: 0.75rem;
+      }
+
+      .card-title {
+        font-size: 0.9rem;
+        word-break: break-word;
+      }
+
+      .card-subtitle {
+        font-size: 0.75rem;
+      }
+
+      .media-preview img,
+      .media-preview video {
+        max-height: 150px;
+      }
+
+      .url-text {
+        font-size: 0.65rem;
+        word-break: break-all;
+      }
+
+      input[type="text"] {
+        font-size: 16px;
+        /* Prevents iOS zoom on focus */
+      }
+
+      textarea {
+        font-size: 16px;
+        /* Prevents iOS zoom on focus */
+      }
+
+      .logs-container {
+        font-size: 0.65rem;
+        padding: 0.75rem;
+      }
+
+      .error-message {
+        padding: 1rem;
+        font-size: 0.85rem;
+        word-break: break-word;
+      }
+
+      .retry-status {
+        font-size: 0.85rem;
+        padding: 1rem;
+      }
+
+      #shareReportBtn {
+        width: 100%;
+        padding: 0.75rem;
+        margin-top: 0.5rem;
+      }
+
+      .report-link-section {
+        padding: 1rem;
+        text-align: center;
+      }
+
+      .report-link-section p {
+        margin: 0.5rem 0;
+        word-break: break-all;
+      }
+    }
   </style>
 </head>
 
@@ -736,11 +1138,12 @@
           style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary); font-size: 0.9rem;">
           Manual Webhook Testing (comma-separated IDs):
         </label>
-        <div style="display: flex; gap: 1rem;">
+        <div class="manual-test-row" style="display: flex; gap: 1rem; flex-wrap: wrap;">
           <input type="text" id="manualWebhookIds"
-            placeholder="e.g., 69314bdfe9637d9ac5140f33, 69315262b5bc5942e3edd5aa, ..."
-            style="flex: 1; padding: 0.75rem 1rem; background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); font-size: 0.9rem; outline: none; font-family: monospace;" />
-          <button type="button" onclick="runManualTests()" style="padding: 0.75rem 2rem; white-space: nowrap;">
+            placeholder="e.g., 69314bdfe9637d9ac5140f33, 69315262b5bc5942e3edd5aa, ..." class="manual-input"
+            style="flex: 1; min-width: 200px; padding: 0.75rem 1rem; background: var(--bg-tertiary); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); font-size: 0.9rem; outline: none; font-family: monospace;" />
+          <button type="button" class="test-selected-btn" onclick="runManualTests()"
+            style="padding: 0.75rem 2rem; white-space: nowrap;">
             🎯 Test Selected
           </button>
         </div>

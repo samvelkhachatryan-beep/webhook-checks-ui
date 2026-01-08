@@ -616,21 +616,54 @@ function buildHtmlContent(results: WebhookTestResult[]): string {
     }
 
     @media (max-width: 768px) {
-      .container {
+      body {
         padding: 1rem;
+      }
+
+      .container {
+        padding: 0.5rem;
+      }
+
+      header {
+        padding: 2rem 1rem;
       }
 
       h1 {
         font-size: 2rem;
       }
 
+      .summary {
+        flex-direction: column;
+        gap: 0.75rem;
+        width: 100%;
+      }
+
+      .summary-item {
+        width: 100%;
+        justify-content: center;
+      }
+
       .webhook-header {
+        padding: 1rem;
         flex-direction: column;
         align-items: flex-start;
+        gap: 0.75rem;
+      }
+
+      .header-right {
+        width: 100%;
+        justify-content: flex-start;
+        flex-wrap: wrap;
+      }
+
+      .webhook-slug {
+        font-size: 1rem;
       }
 
       .results-grid {
         grid-template-columns: 1fr;
+        padding: 1rem;
+        gap: 0.75rem;
       }
 
       .tab-buttons {
@@ -640,6 +673,47 @@ function buildHtmlContent(results: WebhookTestResult[]): string {
       .tab-button {
         flex: 1;
         justify-content: center;
+        padding: 0.65rem 1rem;
+        font-size: 0.9rem;
+      }
+
+      .error-category-header {
+        padding: 0.75rem 1rem;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+      }
+
+      .logs-content {
+        font-size: 0.7rem;
+        padding: 0.75rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      h1 {
+        font-size: 1.5rem;
+      }
+
+      .summary-item {
+        font-size: 0.95rem;
+        padding: 0.75rem 1.5rem;
+      }
+
+      .webhook-header {
+        padding: 0.75rem;
+      }
+
+      .results-grid {
+        padding: 0.75rem;
+      }
+
+      .result-card {
+        border-radius: 8px;
+      }
+
+      .media-preview {
+        aspect-ratio: 16 / 9;
       }
     }
   </style>
@@ -1210,23 +1284,106 @@ function buildIndexContent(files: Array<{ filename: string; created: Date; size:
 
     @media (max-width: 768px) {
       body {
-        padding: 1rem;
+        padding: 0.5rem;
+      }
+
+      .container {
+        max-width: 100%;
+      }
+
+      header {
+        padding: 2rem 1rem;
       }
 
       h1 {
         font-size: 2rem;
       }
 
-      table {
-        font-size: 0.85rem;
+      .subtitle {
+        font-size: 0.95rem;
       }
 
-      th, td {
-        padding: 0.75rem 1rem;
+      .stats {
+        flex-direction: column;
+        gap: 1rem;
+        width: 100%;
+      }
+
+      .stat-box {
+        width: 100%;
       }
 
       .stat-value {
         font-size: 1.5rem;
+      }
+
+      .content-card {
+        margin: 1rem 0;
+      }
+
+      .card-header {
+        padding: 1rem;
+      }
+
+      h2 {
+        font-size: 1.25rem;
+      }
+
+      table {
+        font-size: 0.75rem;
+        display: block;
+        overflow-x: auto;
+      }
+
+      th, td {
+        padding: 0.75rem 0.5rem;
+        white-space: nowrap;
+      }
+
+      .report-link {
+        font-size: 0.75rem;
+        word-break: break-all;
+        white-space: normal;
+      }
+
+      .view-btn {
+        padding: 0.4rem 0.75rem;
+        font-size: 0.75rem;
+      }
+    }
+
+    @media (max-width: 480px) {
+      body {
+        padding: 0.25rem;
+      }
+
+      header {
+        padding: 1.5rem 0.75rem;
+      }
+
+      h1 {
+        font-size: 1.5rem;
+      }
+
+      .stat-box {
+        padding: 0.75rem 1.5rem;
+      }
+
+      .stat-value {
+        font-size: 1.25rem;
+      }
+
+      table {
+        font-size: 0.7rem;
+      }
+
+      th, td {
+        padding: 0.5rem 0.25rem;
+      }
+
+      footer {
+        padding: 2rem 1rem;
+        font-size: 0.8rem;
       }
     }
   </style>
