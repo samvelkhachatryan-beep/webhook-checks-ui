@@ -24,12 +24,6 @@ interface MediaRecord {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Dynamically import to avoid module resolution issues
-  const clientModule = await import('../src/api/client.js');
-  const { fetchCmsSchema, buildParamsFromSchema, submitMagicFlowWebhook, pollJobResult, isMediaResult, fetchAllFlowLandings } = clientModule;
-
-  const htmlReportModule = await import('../src/utils/htmlReport.js');
-  const { generateDatedReport } = htmlReportModule;
   // CORS headers first
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -45,14 +39,59 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // Check for API token early
+  if (!process.env.PICSART_API_TOKEN) {
+    // Send error as SSE event since client expects streaming response
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.write(`data: ${JSON.stringify({
+      type: 'error',
+      message: 'Server configuration error: PICSART_API_TOKEN environment variable is not set'
+    })}\n\n`);
+    return res.end();
+  }
+
+  // Dynamically import to avoid module resolution issues
+  const clientModule = await import('../src/api/client.js');
+  const { fetchCmsSchema, buildParamsFromSchema, submitMagicFlowWebhook, pollJobResult, isMediaResult, fetchAllFlowLandings } = clientModule;
+
+  const htmlReportModule = await import('../src/utils/htmlReport.js');
+  const { generateDatedReport } = htmlReportModule;
+
   // Set up SSE headers
   res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
   res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
+  res.status(200); // Ensure status is set
+
+  // Track if client disconnected to prevent memory leaks
+  let isClientConnected = true;
+  const cleanup = () => {
+    isClientConnected = false;
+  };
+
+  // Listen for client disconnect
+  req.on('close', cleanup);
+  req.on('end', cleanup);
 
   function sendEvent(data: any) {
-    res.write(`data: ${JSON.stringify(data)}\n\n`);
+    if (!isClientConnected) return;
+    try {
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+      // Force flush to ensure immediate delivery
+      if (typeof (res as any).flush === 'function') {
+        (res as any).flush();
+      }
+    } catch (error) {
+      // Client disconnected, stop sending
+      isClientConnected = false;
+    }
   }
+
+  // Send immediate connection confirmation
+  sendEvent({ type: 'connected', message: 'Stream established' });
 
   try {
     // Get optional specific webhook IDs from request body
@@ -96,6 +135,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Function to test a single webhook
     async function testWebhook(webhook: typeof webhooks[0], index: number) {
+      // Check if client is still connected before processing
+      if (!isClientConnected) {
+        throw new Error('Client disconnected');
+      }
+
       const displayName = webhook.slug || webhook.webhookId;
       const startTime = Date.now();
 

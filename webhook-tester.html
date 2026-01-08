@@ -1241,12 +1241,33 @@
       // Force browser to repaint
       card.offsetHeight;
 
+      // Add progress indicator that updates every 5 seconds
+      let elapsedSeconds = 0;
+      const progressInterval = setInterval(() => {
+        elapsedSeconds += 5;
+        const statusDiv = card.querySelector('.retry-status');
+        if (statusDiv && statusDiv.classList.contains('loading')) {
+          statusDiv.textContent = `🔄 Testing webhook... ${elapsedSeconds}s elapsed (webhooks can take 1-5 minutes)`;
+        }
+      }, 5000);
+
       try {
+        // Add timeout to prevent indefinite pending (5 minutes = 300 seconds)
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => {
+          controller.abort();
+          console.log('⚠️ Retry request timeout after 5 minutes');
+        }, 5 * 60 * 1000);
+
+        console.log('📤 Retrying webhook:', webhookId);
         const response = await fetch(`${API_BASE_URL}/api/test`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ webhookId })
-        });
+          body: JSON.stringify({ webhookId }),
+          signal: controller.signal
+        }).finally(() => clearTimeout(timeoutId));
+
+        console.log('📡 Retry response:', response.status);
 
         if (!response.ok) {
           const errorText = await response.text();
@@ -1301,6 +1322,10 @@
 
           log(`✓ Retry successful for ${webhookId}`, 'success');
           updateStats();
+
+          // Update history with the new results
+          saveTestToHistory();
+          log('📊 Test history updated with retry results', 'info');
         } else {
           // Update for failure
           card.classList.remove('retrying', 'success');
@@ -1318,8 +1343,17 @@
           card.offsetHeight;
 
           log(`✗ Retry failed for ${webhookId}: ${data.error}`, 'error');
+
+          // Also update history even if retry failed (to show the attempt)
+          saveTestToHistory();
         }
       } catch (error) {
+        // Handle timeout/abort errors specifically
+        let errorMessage = error.message;
+        if (error.name === 'AbortError') {
+          errorMessage = 'Request timeout after 5 minutes. The webhook took too long to respond.';
+        }
+
         // Update for error
         card.classList.remove('retrying', 'success');
         card.classList.add('failed');
@@ -1327,7 +1361,7 @@
         statusBadge.textContent = '✗ Failed';
         retryBtn.disabled = false;
         retryBtn.textContent = '🔄 Retry';
-        resultContent.innerHTML = renderError(error.message);
+        resultContent.innerHTML = renderError(errorMessage);
 
         // Remove from retrying set
         retryingWebhooks.delete(webhookId);
@@ -1335,7 +1369,17 @@
         // Force repaint
         card.offsetHeight;
 
-        log(`✗ Retry error for ${webhookId}: ${error.message}`, 'error');
+        log(`✗ Retry error for ${webhookId}: ${errorMessage}`, 'error');
+
+        // Update history even on error
+        saveTestToHistory();
+      } finally {
+        // Always clear the progress interval
+        clearInterval(progressInterval);
+        console.log('✅ Retry request completed for:', webhookId);
+
+        // Refresh the history dropdown to show updated results
+        loadHistoryReports();
       }
     }
 

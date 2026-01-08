@@ -2,10 +2,10 @@ import { createServer, IncomingMessage, ServerResponse } from 'node:http';
 import { fetchCmsSchema, buildParamsFromSchema, submitMagicFlowWebhook, pollJobResult, isMediaResult, fetchAllFlowLandings } from './api/client.js';
 import { MediaRecord, FlowLandingItem, WebhookTestResult } from './types/index.js';
 import { generateDatedReport } from './utils/htmlReport.js';
-import { readdirSync, statSync } from 'node:fs';
-import { join } from 'node:path';
+import { readdirSync, statSync, readFileSync, existsSync } from 'node:fs';
+import { join, extname } from 'node:path';
 
-const PORT = 3000;
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 // Load environment variables
 import '../tests/setup.js';
@@ -373,6 +373,17 @@ function serveHtml(res: ServerResponse): void {
  * Handle API test request
  */
 async function handleTestRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  // Check for API token early
+  if (!process.env.PICSART_API_TOKEN) {
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      success: false,
+      error: 'Server configuration error: PICSART_API_TOKEN environment variable is not set',
+      logs: ['Environment variable PICSART_API_TOKEN is missing']
+    }));
+    return;
+  }
+
   let body = '';
 
   for await (const chunk of req) {
@@ -382,23 +393,32 @@ async function handleTestRequest(req: IncomingMessage, res: ServerResponse): Pro
   const { webhookId } = JSON.parse(body);
   const logs: string[] = [];
 
+  console.log('🔄 Retry webhook request received for:', webhookId);
+
   try {
+    console.log('📋 Fetching CMS schema...');
     logs.push('Fetching CMS schema...');
     const schemaResponse = await fetchCmsSchema(webhookId);
     logs.push('Schema fetched: ' + schemaResponse.data.length + ' items');
     logs.push('Schema: ' + JSON.stringify(schemaResponse.data));
+    console.log('✅ Schema fetched:', schemaResponse.data.length, 'items');
 
     const params = buildParamsFromSchema(schemaResponse.data);
     logs.push('Built params: ' + JSON.stringify(params));
+    console.log('✅ Params built');
 
+    console.log('📤 Submitting webhook...');
     logs.push('Submitting webhook...');
     const submitResponse = await submitMagicFlowWebhook(webhookId, params);
     const jobId = submitResponse.response.id;
     logs.push('Job submitted: ' + jobId);
+    console.log('✅ Job submitted:', jobId);
 
+    console.log('⏳ Polling for results (this can take 1-5 minutes)...');
     logs.push('Polling for results...');
     const jobResult = await pollJobResult(jobId);
     logs.push('Job completed with ' + (jobResult.response.result?.length || 0) + ' results');
+    console.log('✅ Job completed with', jobResult.response.result?.length || 0, 'results');
 
     const results: Array<{ type: string; url: string }> = [];
 
@@ -415,10 +435,13 @@ async function handleTestRequest(req: IncomingMessage, res: ServerResponse): Pro
       }
     }
 
+    console.log('✅ Sending successful response');
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true, results, logs }));
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error('❌ Error in single webhook test:', errorMsg);
+    console.error('Stack:', error instanceof Error ? error.stack : 'N/A');
     logs.push('Error: ' + errorMsg);
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -431,47 +454,88 @@ async function handleTestRequest(req: IncomingMessage, res: ServerResponse): Pro
  * Accepts optional webhookIds in request body for manual testing
  */
 async function handleTestAllRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
-  // Set up SSE
+  // Check for API token early
+  if (!process.env.PICSART_API_TOKEN) {
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      error: 'Server configuration error: PICSART_API_TOKEN environment variable is not set'
+    }));
+    return;
+  }
+
+  // IMPORTANT: Read request body BEFORE setting up SSE stream
+  let body = '';
+  for await (const chunk of req) {
+    body += chunk;
+  }
+
+  let specificWebhookIds: string[] | null = null;
+  if (body) {
+    try {
+      const parsed = JSON.parse(body);
+      specificWebhookIds = parsed.webhookIds || null;
+      console.log('📦 Request body parsed:', specificWebhookIds ? `${specificWebhookIds.length} specific IDs` : 'fetch all');
+    } catch (e) {
+      console.log('⚠️ Failed to parse request body, will fetch all webhooks');
+    }
+  }
+
+  // Set up SSE AFTER reading body
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
-    'Cache-Control': 'no-cache',
+    'Cache-Control': 'no-cache, no-transform',
     'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no', // Disable nginx buffering
     'Access-Control-Allow-Origin': '*'
   });
 
+  // Track if client disconnected to prevent memory leaks
+  let isClientConnected = true;
+  const cleanup = () => {
+    isClientConnected = false;
+  };
+
+  // Listen for client disconnect
+  req.on('close', cleanup);
+  req.on('end', cleanup);
+
   function sendEvent(data: any) {
-    res.write(`data: ${JSON.stringify(data)}\n\n`);
+    if (!isClientConnected) return;
+    try {
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+      // Flush to ensure immediate delivery (for Node.js HTTP server)
+      if (typeof (res as any).flush === 'function') {
+        (res as any).flush();
+      }
+    } catch (error) {
+      // Client disconnected, stop sending
+      isClientConnected = false;
+      console.log('⚠️ Client disconnected');
+    }
   }
 
-  try {
-    // Read request body for optional webhook IDs
-    let body = '';
-    for await (const chunk of req) {
-      body += chunk;
-    }
+  // Send immediate connection confirmation
+  sendEvent({ type: 'connected', message: 'Stream established' });
+  console.log('✅ SSE stream initiated');
 
-    let specificWebhookIds: string[] | null = null;
-    if (body) {
-      try {
-        const parsed = JSON.parse(body);
-        specificWebhookIds = parsed.webhookIds || null;
-      } catch (e) {
-        // Ignore parse errors, treat as no specific IDs
-      }
-    }
+  try {
 
     // Fetch all webhooks or use specific IDs
+    console.log('📡 Fetching webhooks...');
     sendEvent({ type: 'init', message: 'Fetching webhooks...' });
 
     let webhooks: Array<{ webhookId: string; slug?: string; title?: string; flowType?: 'image' | 'video' }>;
 
     if (specificWebhookIds && specificWebhookIds.length > 0) {
       // Manual mode: Test only specified webhook IDs
+      console.log(`📋 Manual mode: ${specificWebhookIds.length} specific webhooks`);
       sendEvent({ type: 'init', message: `Testing ${specificWebhookIds.length} specific webhooks...` });
       webhooks = specificWebhookIds.map(id => ({ webhookId: id }));
     } else {
       // Auto mode: Fetch all webhooks from API
+      console.log('🌐 Auto mode: Fetching all flow landings from API...');
       const flowLandings = await fetchAllFlowLandings();
+      console.log(`✅ Fetched ${flowLandings.length} flow landings`);
       webhooks = flowLandings
         .filter((landing: FlowLandingItem) => landing.flow?.flowId)
         .map((landing: FlowLandingItem) => ({
@@ -480,9 +544,11 @@ async function handleTestAllRequest(req: IncomingMessage, res: ServerResponse): 
           title: landing.title,
           flowType: landing.type
         }));
+      console.log(`📊 Filtered to ${webhooks.length} webhooks with flowIds`);
     }
 
     const total = webhooks.length;
+    console.log(`🚀 Starting tests for ${total} webhooks`);
     sendEvent({ type: 'init', total });
 
     let passed = 0;
@@ -497,6 +563,11 @@ async function handleTestAllRequest(req: IncomingMessage, res: ServerResponse): 
 
     // Function to test a single webhook
     async function testWebhook(webhook: typeof webhooks[0], index: number) {
+      // Check if client is still connected before processing
+      if (!isClientConnected) {
+        throw new Error('Client disconnected');
+      }
+
       const displayName = webhook.slug || webhook.webhookId;
       const startTime = Date.now();
 
@@ -635,9 +706,12 @@ async function handleTestAllRequest(req: IncomingMessage, res: ServerResponse): 
 
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error('❌ Error in handleTestAllRequest:', errorMsg);
+    console.error('Stack:', error instanceof Error ? error.stack : 'N/A');
     sendEvent({ type: 'error', message: errorMsg });
   }
 
+  console.log('🏁 SSE stream ending');
   res.end();
 }
 
@@ -671,11 +745,52 @@ function handleReportsRequest(req: IncomingMessage, res: ServerResponse): void {
 }
 
 /**
+ * Serve static HTML files
+ */
+function serveStaticFile(req: IncomingMessage, res: ServerResponse): void {
+  const url = req.url || '/';
+  const filePath = join(process.cwd(), url.slice(1)); // Remove leading slash
+
+  console.log('📁 Attempting to serve:', filePath);
+
+  if (!existsSync(filePath)) {
+    console.log('❌ File not found:', filePath);
+    res.writeHead(404, { 'Content-Type': 'text/html' });
+    res.end('<h1>404 - File Not Found</h1><p>Requested: ' + url + '</p>');
+    return;
+  }
+
+  try {
+    const content = readFileSync(filePath, 'utf-8');
+    const ext = extname(filePath);
+    const contentType = ext === '.html' ? 'text/html' :
+      ext === '.css' ? 'text/css' :
+        ext === '.js' ? 'application/javascript' :
+          'text/plain';
+
+    console.log('✅ Serving file:', filePath);
+    res.writeHead(200, {
+      'Content-Type': contentType,
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    });
+    res.end(content);
+  } catch (error) {
+    console.error('❌ Error reading file:', error);
+    res.writeHead(500, { 'Content-Type': 'text/html' });
+    res.end('<h1>500 - Internal Server Error</h1>');
+  }
+}
+
+/**
  * Request handler
  */
 async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const url = req.url || '/';
   const method = req.method || 'GET';
+
+  console.log(`📥 ${method} ${url}`);
 
   // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -696,9 +811,13 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
     await handleTestAllRequest(req, res);
   } else if (url === '/api/reports' && method === 'GET') {
     handleReportsRequest(req, res);
+  } else if (method === 'GET' && url.endsWith('.html')) {
+    // Serve static HTML files
+    serveStaticFile(req, res);
   } else {
-    res.writeHead(404, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Not found' }));
+    console.log('❌ 404 Not Found:', url);
+    res.writeHead(404, { 'Content-Type': 'text/html' });
+    res.end('<h1>404 - Not Found</h1><p>Requested: ' + url + '</p>');
   }
 }
 

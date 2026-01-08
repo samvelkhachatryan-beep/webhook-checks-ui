@@ -280,11 +280,11 @@ export async function getJobResult(jobId: string): Promise<JobResultResponse> {
 
 /**
  * Poll for job completion with timeout
- * Default: 90 attempts × 2s = 180s total timeout
+ * Default: 150 attempts × 2s = 300s (5 minutes) total timeout
  */
 export async function pollJobResult(
   jobId: string,
-  maxAttempts: number = 90,
+  maxAttempts: number = 150,
   intervalMs: number = 2000
 ): Promise<JobResultResponse> {
   console.log(`   ⏳ Polling for job ${jobId} (max ${maxAttempts} attempts, ${intervalMs}ms interval)`);
