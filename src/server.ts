@@ -811,6 +811,33 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
     await handleTestAllRequest(req, res);
   } else if (url === '/api/reports' && method === 'GET') {
     handleReportsRequest(req, res);
+  } else if (url.startsWith('/reports/') && method === 'GET') {
+    // Serve report files from artifacts directory
+    const fileName = url.replace('/reports/', '');
+    const filePath = join(process.cwd(), 'artifacts', fileName);
+
+    console.log('📊 Report request:', fileName);
+
+    if (!existsSync(filePath)) {
+      console.log('❌ Report not found:', filePath);
+      res.writeHead(404, { 'Content-Type': 'text/html' });
+      res.end('<h1>404 - Report Not Found</h1><p>Requested: ' + fileName + '</p>');
+      return;
+    }
+
+    try {
+      const content = readFileSync(filePath, 'utf-8');
+      console.log('✅ Serving report:', fileName);
+      res.writeHead(200, {
+        'Content-Type': 'text/html',
+        'Cache-Control': 'public, max-age=3600' // Cache reports for 1 hour
+      });
+      res.end(content);
+    } catch (error) {
+      console.error('❌ Error reading report:', error);
+      res.writeHead(500, { 'Content-Type': 'text/html' });
+      res.end('<h1>500 - Error Loading Report</h1>');
+    }
   } else if (method === 'GET' && url.endsWith('.html')) {
     // Serve static HTML files
     serveStaticFile(req, res);
