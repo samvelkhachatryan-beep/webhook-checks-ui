@@ -1,6 +1,5 @@
 {
   "version": 2,
-  "buildCommand": "npm install",
   "functions": {
     "api/**/*.ts": {
       "memory": 1024,

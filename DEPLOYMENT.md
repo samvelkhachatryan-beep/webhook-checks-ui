@@ -96,28 +96,26 @@ Update `src/utils/htmlReport.ts` to save to Vercel Blob instead of local filesys
 ```json
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "api/**/*.ts",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "webhook-tester.html",
-      "use": "@vercel/static"
+  "functions": {
+    "api/**/*.ts": {
+      "memory": 1024,
+      "maxDuration": 300
     }
-  ],
-  "routes": [
+  },
+  "rewrites": [
     {
-      "src": "/",
-      "dest": "/webhook-tester.html"
-    },
-    {
-      "src": "/api/(.*)",
-      "dest": "/api/$1"
+      "source": "/",
+      "destination": "/webhook-tester.html"
     }
   ]
 }
 ```
+
+**Note:** 
+- Vercel automatically handles TypeScript compilation for `/api` folder
+- `npm install` runs automatically (no buildCommand needed)
+- `webhook-tester.html` is served as a static file
+- Functions get 1024MB memory and 300s (5 min) timeout
 
 ---
 
