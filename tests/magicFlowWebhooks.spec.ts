@@ -40,7 +40,7 @@ let testMode: 'manual' | 'api' = 'api';
 /**
  * Concurrency limit for parallel execution (default: 50)
  */
-const CONCURRENCY = parseInt(process.env.CONCURRENCY || '50', 10);
+const CONCURRENCY = parseInt(process.env.CONCURRENCY || '100', 10);
 
 /**
  * Counter for tracking progress
