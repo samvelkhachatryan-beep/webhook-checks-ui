@@ -2439,17 +2439,46 @@
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
+        
+        // Track last data received for timeout detection
+        let lastDataTime = Date.now();
+        const CONNECTION_TIMEOUT = 60000; // 60 seconds without any data = connection lost
+        
+        // Timeout checker
+        const timeoutChecker = setInterval(() => {
+          const timeSinceLastData = Date.now() - lastDataTime;
+          if (timeSinceLastData > CONNECTION_TIMEOUT) {
+            log('⚠️ Connection timeout - no data received for 60 seconds', 'warning');
+            clearInterval(timeoutChecker);
+            reader.cancel();
+          }
+        }, 10000); // Check every 10 seconds
 
         while (true) {
           const { done, value } = await reader.read();
-          if (done) break;
+          if (done) {
+            clearInterval(timeoutChecker);
+            break;
+          }
 
           const chunk = decoder.decode(value);
           const lines = chunk.split('\n');
 
           for (const line of lines) {
             if (line.startsWith('data: ')) {
+              lastDataTime = Date.now(); // Update last data time
               const data = JSON.parse(line.slice(6));
+
+              // Handle heartbeat to keep connection alive
+              if (data.type === 'heartbeat') {
+                // Silent heartbeat - just update timestamp
+                continue;
+              }
+              
+              if (data.type === 'connected') {
+                log('✓ Stream connected', 'success');
+                continue;
+              }
 
               if (data.type === 'init') {
                 totalWebhooksCount = data.total;
@@ -2532,12 +2561,22 @@
 
               } else if (data.type === 'error') {
                 log(`Error: ${data.message}`, 'error');
+              } else if (data.type === 'info') {
+                log(data.message, 'info');
               }
             }
           }
         }
+        
+        // Clean up timeout checker when stream ends normally
+        clearInterval(timeoutChecker);
 
       } catch (error) {
+        // Clean up timeout checker on error
+        if (typeof timeoutChecker !== 'undefined') {
+          clearInterval(timeoutChecker);
+        }
+        
         log(`Fatal error: ${error.message}`, 'error');
         console.error('Error in runTests:', error);
         isTestRunning = false;
@@ -2625,17 +2664,45 @@
         const decoder = new TextDecoder();
         let allWebhooks = [];
         let receivingInit = true;
+        
+        // Track last data received for timeout detection
+        let lastDataTime = Date.now();
+        const CONNECTION_TIMEOUT = 60000; // 60 seconds without any data = connection lost
+        
+        // Timeout checker
+        const timeoutChecker = setInterval(() => {
+          const timeSinceLastData = Date.now() - lastDataTime;
+          if (timeSinceLastData > CONNECTION_TIMEOUT) {
+            log('⚠️ Connection timeout - no data received for 60 seconds', 'warning');
+            clearInterval(timeoutChecker);
+            reader.cancel();
+          }
+        }, 10000); // Check every 10 seconds
 
         while (true) {
           const { done, value } = await reader.read();
-          if (done) break;
+          if (done) {
+            clearInterval(timeoutChecker);
+            break;
+          }
 
           const chunk = decoder.decode(value);
           const lines = chunk.split('\n');
 
           for (const line of lines) {
             if (line.startsWith('data: ')) {
+              lastDataTime = Date.now(); // Update last data time
               const data = JSON.parse(line.slice(6));
+              
+              // Handle heartbeat to keep connection alive
+              if (data.type === 'heartbeat') {
+                continue;
+              }
+              
+              if (data.type === 'connected') {
+                log('✓ Stream connected', 'success');
+                continue;
+              }
 
               if (data.type === 'init') {
                 totalWebhooksCount = data.total;
@@ -2716,12 +2783,22 @@
 
               } else if (data.type === 'error') {
                 log(`Error: ${data.message}`, 'error');
+              } else if (data.type === 'info') {
+                log(data.message, 'info');
               }
             }
           }
         }
+        
+        // Clean up timeout checker when stream ends normally
+        clearInterval(timeoutChecker);
 
       } catch (error) {
+        // Clean up timeout checker on error
+        if (typeof timeoutChecker !== 'undefined') {
+          clearInterval(timeoutChecker);
+        }
+        
         log(`Resume error: ${error.message}`, 'error');
         console.error('Error in resumeTests:', error);
         isTestRunning = false;

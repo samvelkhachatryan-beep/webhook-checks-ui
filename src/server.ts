@@ -502,21 +502,48 @@ async function handleTestAllRequest(req: IncomingMessage, res: ServerResponse): 
   function sendEvent(data: any) {
     if (!isClientConnected) return;
     try {
-      res.write(`data: ${JSON.stringify(data)}\n\n`);
-      // Flush to ensure immediate delivery (for Node.js HTTP server)
+      const message = `data: ${JSON.stringify(data)}\n\n`;
+      const written = res.write(message);
+      
+      // Flush to ensure immediate delivery
       if (typeof (res as any).flush === 'function') {
         (res as any).flush();
+      }
+      
+      // If write buffer is full, wait for drain
+      if (!written) {
+        console.log('⚠️ Write buffer full, waiting for drain...');
       }
     } catch (error) {
       // Client disconnected, stop sending
       isClientConnected = false;
-      console.log('⚠️ Client disconnected');
+      console.log('⚠️ Client disconnected during write');
     }
   }
 
   // Send immediate connection confirmation
   sendEvent({ type: 'connected', message: 'Stream established' });
   console.log('✅ SSE stream initiated');
+
+  // Set up heartbeat to keep connection alive (every 15 seconds)
+  const heartbeatInterval = setInterval(() => {
+    if (isClientConnected) {
+      sendEvent({ type: 'heartbeat', timestamp: Date.now() });
+    } else {
+      clearInterval(heartbeatInterval);
+    }
+  }, 15000);
+
+  // Clean up heartbeat on disconnect
+  const originalCleanup = cleanup;
+  const cleanupWithHeartbeat = () => {
+    clearInterval(heartbeatInterval);
+    originalCleanup();
+  };
+  req.removeListener('close', cleanup);
+  req.removeListener('end', cleanup);
+  req.on('close', cleanupWithHeartbeat);
+  req.on('end', cleanupWithHeartbeat);
 
   try {
 
@@ -709,6 +736,9 @@ async function handleTestAllRequest(req: IncomingMessage, res: ServerResponse): 
     console.error('❌ Error in handleTestAllRequest:', errorMsg);
     console.error('Stack:', error instanceof Error ? error.stack : 'N/A');
     sendEvent({ type: 'error', message: errorMsg });
+  } finally {
+    // Ensure heartbeat is cleaned up
+    clearInterval(heartbeatInterval);
   }
 
   console.log('🏁 SSE stream ending');
