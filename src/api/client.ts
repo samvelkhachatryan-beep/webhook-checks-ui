@@ -314,6 +314,33 @@ export async function pollJobResult(
 }
 
 /**
+ * Fetch metadata for specific webhook IDs from flow-landings API
+ * Returns a map of webhookId -> metadata
+ */
+export async function fetchWebhookMetadata(webhookIds: string[]): Promise<Map<string, { slug?: string; title?: string; flowType?: 'image' | 'video' }>> {
+  try {
+    const allFlowLandings = await fetchAllFlowLandings();
+    const metadataMap = new Map<string, { slug?: string; title?: string; flowType?: 'image' | 'video' }>();
+    
+    allFlowLandings.forEach((landing: FlowLandingItem) => {
+      if (landing.flow?.flowId && webhookIds.includes(landing.flow.flowId)) {
+        metadataMap.set(landing.flow.flowId, {
+          slug: landing.slug,
+          title: landing.title,
+          flowType: landing.type
+        });
+      }
+    });
+    
+    return metadataMap;
+  } catch (error) {
+    console.warn('Failed to fetch webhook metadata:', error);
+    // Return empty map if fetching fails - webhooks will show with ID only
+    return new Map();
+  }
+}
+
+/**
  * Check if a result item has a URL (image or video)
  */
 export function isMediaResult(item: ResultItem): boolean {

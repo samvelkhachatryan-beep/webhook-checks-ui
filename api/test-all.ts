@@ -54,7 +54,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // Dynamically import to avoid module resolution issues
   const clientModule = await import('../src/api/client.js');
-  const { fetchCmsSchema, buildParamsFromSchema, submitMagicFlowWebhook, pollJobResult, isMediaResult, fetchAllFlowLandings } = clientModule;
+  const { fetchCmsSchema, buildParamsFromSchema, submitMagicFlowWebhook, pollJobResult, isMediaResult, fetchAllFlowLandings, fetchWebhookMetadata } = clientModule;
 
   const htmlReportModule = await import('../src/utils/htmlReport.js');
   const { generateDatedReport } = htmlReportModule;
@@ -106,7 +106,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (specificWebhookIds && specificWebhookIds.length > 0) {
       // Manual mode: Test only specified webhook IDs
       sendEvent({ type: 'init', message: `Testing ${specificWebhookIds.length} specific webhooks...` });
-      webhooks = specificWebhookIds.map(id => ({ webhookId: id }));
+      
+      // Fetch metadata for manual webhook IDs
+      sendEvent({ type: 'info', message: 'Fetching webhook metadata...' });
+      const metadataMap = await fetchWebhookMetadata(specificWebhookIds);
+      
+      webhooks = specificWebhookIds.map(id => {
+        const metadata = metadataMap.get(id);
+        return {
+          webhookId: id,
+          slug: metadata?.slug,
+          title: metadata?.title,
+          flowType: metadata?.flowType
+        };
+      });
+      
+      sendEvent({ type: 'info', message: `Enriched ${metadataMap.size}/${specificWebhookIds.length} webhooks with metadata` });
     } else {
       // Auto mode: Fetch all webhooks from API
       const flowLandings = await fetchAllFlowLandings();

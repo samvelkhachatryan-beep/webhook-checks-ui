@@ -1,5 +1,5 @@
 import { createServer, IncomingMessage, ServerResponse } from 'node:http';
-import { fetchCmsSchema, buildParamsFromSchema, submitMagicFlowWebhook, pollJobResult, isMediaResult, fetchAllFlowLandings } from './api/client.js';
+import { fetchCmsSchema, buildParamsFromSchema, submitMagicFlowWebhook, pollJobResult, isMediaResult, fetchAllFlowLandings, fetchWebhookMetadata } from './api/client.js';
 import { MediaRecord, FlowLandingItem, WebhookTestResult } from './types/index.js';
 import { generateDatedReport } from './utils/htmlReport.js';
 import { readdirSync, statSync, readFileSync, existsSync } from 'node:fs';
@@ -557,7 +557,22 @@ async function handleTestAllRequest(req: IncomingMessage, res: ServerResponse): 
       // Manual mode: Test only specified webhook IDs
       console.log(`📋 Manual mode: ${specificWebhookIds.length} specific webhooks`);
       sendEvent({ type: 'init', message: `Testing ${specificWebhookIds.length} specific webhooks...` });
-      webhooks = specificWebhookIds.map(id => ({ webhookId: id }));
+      
+      // Fetch metadata for manual webhook IDs
+      console.log(`📡 Fetching metadata for manual webhooks...`);
+      const metadataMap = await fetchWebhookMetadata(specificWebhookIds);
+      
+      webhooks = specificWebhookIds.map(id => {
+        const metadata = metadataMap.get(id);
+        return {
+          webhookId: id,
+          slug: metadata?.slug,
+          title: metadata?.title,
+          flowType: metadata?.flowType
+        };
+      });
+      
+      console.log(`✅ Enriched ${metadataMap.size}/${specificWebhookIds.length} webhooks with metadata`);
     } else {
       // Auto mode: Fetch all webhooks from API
       console.log('🌐 Auto mode: Fetching all flow landings from API...');

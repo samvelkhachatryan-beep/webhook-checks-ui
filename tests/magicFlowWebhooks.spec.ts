@@ -7,6 +7,7 @@ import {
   isMediaResult,
   isValidUrl,
   fetchAllFlowLandings,
+  fetchWebhookMetadata,
 } from '../src/api/client.js';
 import { getManualWebhookIds, isManualMode } from '../src/config/webhooks.js';
 import { generateHtmlReport, generateDatedReport, logSummary } from '../src/utils/htmlReport.js';
@@ -54,7 +55,22 @@ describe('Magic Flow Webhook Tests', () => {
       testMode = 'manual';
       const manualIds = getManualWebhookIds()!;
       console.log(`\n🔧 MANUAL MODE: Testing ${manualIds.length} specified webhook IDs\n`);
-      webhooksToTest = manualIds.map((id) => ({ webhookId: id }));
+      
+      // Fetch metadata for manual webhook IDs
+      console.log('📡 Fetching webhook metadata...');
+      const metadataMap = await fetchWebhookMetadata(manualIds);
+      
+      webhooksToTest = manualIds.map((id) => {
+        const metadata = metadataMap.get(id);
+        return {
+          webhookId: id,
+          slug: metadata?.slug,
+          title: metadata?.title,
+          flowType: metadata?.flowType
+        };
+      });
+      
+      console.log(`✅ Enriched ${metadataMap.size}/${manualIds.length} webhooks with metadata\n`);
     } else {
       testMode = 'api';
       console.log('\n🌐 API MODE: Fetching all flow landings from API...\n');
