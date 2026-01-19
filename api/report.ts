@@ -74,11 +74,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Read and serve the report
     const content = readFileSync(filePath, 'utf-8');
     console.log('✅ Serving report:', file);
-    
+
     res.setHeader('Content-Type', 'text/html');
     res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
     res.status(200).send(content);
-    
+
   } catch (error) {
     console.error('Error reading report:', error);
     res.status(500).send(`

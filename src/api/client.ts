@@ -52,6 +52,11 @@ export async function fetchAllFlowLandings(): Promise<FlowLandingItem[]> {
     allItems.push(...data.data);
 
     console.log(`   ✓ Got ${data.data.length} items (total so far: ${allItems.length})`);
+    
+    // Debug: Log first item structure to see available fields
+    if (page === 1 && data.data.length > 0) {
+      console.log('   🔍 Sample item structure:', JSON.stringify(data.data[0], null, 2));
+    }
 
     // Check if there are more pages
     const { page: currentPage, pageCount } = data.meta.pagination;
@@ -183,9 +188,14 @@ export function buildParamsFromSchema(schemaItems: CmsSchemaItem[]): WebhookPara
         break;
 
       case 'text':
-      case 'prompt':
         params[item.key] = {
           value: PLACEHOLDER_ASSETS.text.value,
+        };
+        break;
+      
+      case 'prompt':
+        params[item.key] = {
+          value: PLACEHOLDER_ASSETS.prompt?.value || PLACEHOLDER_ASSETS.text.value,
         };
         break;
 
@@ -317,16 +327,17 @@ export async function pollJobResult(
  * Fetch metadata for specific webhook IDs from flow-landings API
  * Returns a map of webhookId -> metadata
  */
-export async function fetchWebhookMetadata(webhookIds: string[]): Promise<Map<string, { slug?: string; title?: string; flowType?: 'image' | 'video' }>> {
+export async function fetchWebhookMetadata(webhookIds: string[]): Promise<Map<string, { slug?: string; title?: string; category?: string; flowType?: 'image' | 'video' }>> {
   try {
     const allFlowLandings = await fetchAllFlowLandings();
-    const metadataMap = new Map<string, { slug?: string; title?: string; flowType?: 'image' | 'video' }>();
+    const metadataMap = new Map<string, { slug?: string; title?: string; category?: string; flowType?: 'image' | 'video' }>();
     
     allFlowLandings.forEach((landing: FlowLandingItem) => {
       if (landing.flow?.flowId && webhookIds.includes(landing.flow.flowId)) {
         metadataMap.set(landing.flow.flowId, {
           slug: landing.slug,
           title: landing.title,
+          category: landing.category,
           flowType: landing.type
         });
       }

@@ -138,6 +138,8 @@ export interface WebhookTestResult {
   slug?: string;
   /** Title from flow-landings API */
   title?: string;
+  /** Category name from flow-landings API */
+  category?: string;
   /** Type from flow-landings API (image or video) */
   flowType?: 'image' | 'video';
   success: boolean;
@@ -178,6 +180,7 @@ export interface FlowLandingItem {
   flow: FlowLandingFlow;
   type: 'image' | 'video';
   redirectionUrl: string;
+  category?: string;  // Category is a simple string, not an object
   createdAt: string;
   updatedAt: string;
   publishedAt: string;

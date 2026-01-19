@@ -4,6 +4,7 @@ interface FlowLandingItem {
   flow: { flowId: string };
   slug?: string;
   title?: string;
+  category?: string;
   type?: 'image' | 'video';
 }
 
@@ -11,6 +12,7 @@ interface WebhookTestResult {
   webhookId: string;
   slug?: string;
   title?: string;
+  category?: string;
   flowType?: 'image' | 'video';
   success: boolean;
   results: Array<{ type: string; url: string }>;
@@ -101,26 +103,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Fetch all webhooks or use specific IDs
     sendEvent({ type: 'init', message: 'Fetching webhooks...' });
 
-    let webhooks: Array<{ webhookId: string; slug?: string; title?: string; flowType?: 'image' | 'video' }>;
+    let webhooks: Array<{ webhookId: string; slug?: string; title?: string; category?: string; flowType?: 'image' | 'video' }>;
 
     if (specificWebhookIds && specificWebhookIds.length > 0) {
       // Manual mode: Test only specified webhook IDs
       sendEvent({ type: 'init', message: `Testing ${specificWebhookIds.length} specific webhooks...` });
-      
+
       // Fetch metadata for manual webhook IDs
       sendEvent({ type: 'info', message: 'Fetching webhook metadata...' });
       const metadataMap = await fetchWebhookMetadata(specificWebhookIds);
-      
+
       webhooks = specificWebhookIds.map(id => {
         const metadata = metadataMap.get(id);
         return {
           webhookId: id,
           slug: metadata?.slug,
           title: metadata?.title,
+          category: metadata?.category,
           flowType: metadata?.flowType
         };
       });
-      
+
       sendEvent({ type: 'info', message: `Enriched ${metadataMap.size}/${specificWebhookIds.length} webhooks with metadata` });
     } else {
       // Auto mode: Fetch all webhooks from API
@@ -131,6 +134,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           webhookId: landing.flow.flowId,
           slug: landing.slug,
           title: landing.title,
+          category: landing.category,
           flowType: landing.type
         }));
     }
@@ -198,6 +202,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           webhookId: webhook.webhookId,
           slug: webhook.slug,
           title: webhook.title,
+          category: webhook.category,
           flowType: webhook.flowType,
           success: true,
           results,
@@ -213,6 +218,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             webhookId: webhook.webhookId,
             slug: webhook.slug,
             title: webhook.title,
+            category: webhook.category,
             status: 'success',
             results
           }
@@ -227,6 +233,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           webhookId: webhook.webhookId,
           slug: webhook.slug,
           title: webhook.title,
+          category: webhook.category,
           flowType: webhook.flowType,
           success: false,
           error: errorMsg,
@@ -243,6 +250,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             webhookId: webhook.webhookId,
             slug: webhook.slug,
             title: webhook.title,
+            category: webhook.category,
             status: 'failed',
             error: errorMsg
           }

@@ -1501,7 +1501,10 @@
         <div class="result-card ${statusClass}" id="${cardId}">
           <div class="result-header">
             <div class="webhook-info">
-              <div class="webhook-title">${escapeHtml(title)}</div>
+              <div class="webhook-title">
+                ${escapeHtml(title)}
+                ${result.category ? `<span style="margin-left: 0.5rem; padding: 0.25rem 0.5rem; background: rgba(0, 212, 255, 0.15); color: var(--accent); border-radius: 4px; font-size: 0.75rem; font-weight: 500;">${escapeHtml(result.category)}</span>` : ''}
+              </div>
               <div class="webhook-id">${escapeHtml(result.webhookId)}</div>
             </div>
             <div style="display: flex; align-items: center; gap: 1rem;">
@@ -1713,13 +1716,19 @@
         const data = await response.json();
 
         if (data.success) {
+          // Use metadata from response if available
+          const finalSlug = data.metadata?.slug || slug;
+          const finalTitle = data.metadata?.title || title;
+          const finalCategory = data.metadata?.category;
+          
           // Update result in testResults array
           const resultIndex = testResults.findIndex(r => r.webhookId === webhookId);
           if (resultIndex !== -1) {
             testResults[resultIndex] = {
               webhookId,
-              slug,
-              title,
+              slug: finalSlug,
+              title: finalTitle,
+              category: finalCategory,
               status: 'success',
               results: data.results
             };
@@ -1732,6 +1741,16 @@
           statusBadge.textContent = '✓ Passed';
           retryBtn.style.display = 'none';
           resultContent.innerHTML = renderMediaResults(data.results);
+          
+          // Update the title to include category if available
+          const webhookInfo = card.querySelector('.webhook-info');
+          if (webhookInfo) {
+            const webhookTitle = webhookInfo.querySelector('.webhook-title');
+            if (webhookTitle && finalCategory) {
+              const titleText = finalTitle || finalSlug || webhookId;
+              webhookTitle.innerHTML = `${escapeHtml(titleText)} <span style="margin-left: 0.5rem; padding: 0.25rem 0.5rem; background: rgba(0, 212, 255, 0.15); color: var(--accent); border-radius: 4px; font-size: 0.75rem; font-weight: 500;">${escapeHtml(finalCategory)}</span>`;
+            }
+          }
 
           // Remove from retrying set
           retryingWebhooks.delete(webhookId);
@@ -2439,11 +2458,11 @@
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
-        
+
         // Track last data received for timeout detection
         let lastDataTime = Date.now();
         const CONNECTION_TIMEOUT = 60000; // 60 seconds without any data = connection lost
-        
+
         // Timeout checker
         const timeoutChecker = setInterval(() => {
           const timeSinceLastData = Date.now() - lastDataTime;
@@ -2474,7 +2493,7 @@
                 // Silent heartbeat - just update timestamp
                 continue;
               }
-              
+
               if (data.type === 'connected') {
                 log('✓ Stream connected', 'success');
                 continue;
@@ -2567,7 +2586,7 @@
             }
           }
         }
-        
+
         // Clean up timeout checker when stream ends normally
         clearInterval(timeoutChecker);
 
@@ -2576,7 +2595,7 @@
         if (typeof timeoutChecker !== 'undefined') {
           clearInterval(timeoutChecker);
         }
-        
+
         log(`Fatal error: ${error.message}`, 'error');
         console.error('Error in runTests:', error);
         isTestRunning = false;
@@ -2664,11 +2683,11 @@
         const decoder = new TextDecoder();
         let allWebhooks = [];
         let receivingInit = true;
-        
+
         // Track last data received for timeout detection
         let lastDataTime = Date.now();
         const CONNECTION_TIMEOUT = 60000; // 60 seconds without any data = connection lost
-        
+
         // Timeout checker
         const timeoutChecker = setInterval(() => {
           const timeSinceLastData = Date.now() - lastDataTime;
@@ -2693,12 +2712,12 @@
             if (line.startsWith('data: ')) {
               lastDataTime = Date.now(); // Update last data time
               const data = JSON.parse(line.slice(6));
-              
+
               // Handle heartbeat to keep connection alive
               if (data.type === 'heartbeat') {
                 continue;
               }
-              
+
               if (data.type === 'connected') {
                 log('✓ Stream connected', 'success');
                 continue;
@@ -2789,7 +2808,7 @@
             }
           }
         }
-        
+
         // Clean up timeout checker when stream ends normally
         clearInterval(timeoutChecker);
 
@@ -2798,7 +2817,7 @@
         if (typeof timeoutChecker !== 'undefined') {
           clearInterval(timeoutChecker);
         }
-        
+
         log(`Resume error: ${error.message}`, 'error');
         console.error('Error in resumeTests:', error);
         isTestRunning = false;

@@ -393,9 +393,23 @@ async function handleTestRequest(req: IncomingMessage, res: ServerResponse): Pro
   const { webhookId } = JSON.parse(body);
   const logs: string[] = [];
 
-  console.log('🔄 Retry webhook request received for:', webhookId);
+  console.log('🔄 Single webhook test request received for:', webhookId);
 
   try {
+    // Fetch metadata for this webhook ID
+    console.log('📡 Fetching webhook metadata...');
+    logs.push('Fetching webhook metadata...');
+    const metadataMap = await fetchWebhookMetadata([webhookId]);
+    const metadata = metadataMap.get(webhookId);
+    
+    if (metadata) {
+      console.log('✅ Metadata found:', metadata);
+      logs.push('Metadata: ' + JSON.stringify(metadata));
+    } else {
+      console.log('⚠️ No metadata found for webhook');
+      logs.push('No metadata found in flow-landings API');
+    }
+
     console.log('📋 Fetching CMS schema...');
     logs.push('Fetching CMS schema...');
     const schemaResponse = await fetchCmsSchema(webhookId);
@@ -437,7 +451,17 @@ async function handleTestRequest(req: IncomingMessage, res: ServerResponse): Pro
 
     console.log('✅ Sending successful response');
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ success: true, results, logs }));
+    res.end(JSON.stringify({ 
+      success: true, 
+      results, 
+      logs,
+      metadata: {
+        slug: metadata?.slug,
+        title: metadata?.title,
+        category: metadata?.category,
+        flowType: metadata?.flowType
+      }
+    }));
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
     console.error('❌ Error in single webhook test:', errorMsg);
@@ -551,7 +575,7 @@ async function handleTestAllRequest(req: IncomingMessage, res: ServerResponse): 
     console.log('📡 Fetching webhooks...');
     sendEvent({ type: 'init', message: 'Fetching webhooks...' });
 
-    let webhooks: Array<{ webhookId: string; slug?: string; title?: string; flowType?: 'image' | 'video' }>;
+    let webhooks: Array<{ webhookId: string; slug?: string; title?: string; category?: string; flowType?: 'image' | 'video' }>;
 
     if (specificWebhookIds && specificWebhookIds.length > 0) {
       // Manual mode: Test only specified webhook IDs
@@ -568,6 +592,7 @@ async function handleTestAllRequest(req: IncomingMessage, res: ServerResponse): 
           webhookId: id,
           slug: metadata?.slug,
           title: metadata?.title,
+          category: metadata?.category,
           flowType: metadata?.flowType
         };
       });
@@ -584,6 +609,7 @@ async function handleTestAllRequest(req: IncomingMessage, res: ServerResponse): 
           webhookId: landing.flow.flowId,
           slug: landing.slug,
           title: landing.title,
+          category: landing.category,
           flowType: landing.type
         }));
       console.log(`📊 Filtered to ${webhooks.length} webhooks with flowIds`);
@@ -653,6 +679,7 @@ async function handleTestAllRequest(req: IncomingMessage, res: ServerResponse): 
           webhookId: webhook.webhookId,
           slug: webhook.slug,
           title: webhook.title,
+          category: webhook.category,
           flowType: webhook.flowType,
           success: true,
           results,
@@ -668,6 +695,7 @@ async function handleTestAllRequest(req: IncomingMessage, res: ServerResponse): 
             webhookId: webhook.webhookId,
             slug: webhook.slug,
             title: webhook.title,
+            category: webhook.category,
             status: 'success',
             results
           }
@@ -682,6 +710,7 @@ async function handleTestAllRequest(req: IncomingMessage, res: ServerResponse): 
           webhookId: webhook.webhookId,
           slug: webhook.slug,
           title: webhook.title,
+          category: webhook.category,
           flowType: webhook.flowType,
           success: false,
           error: errorMsg,
@@ -698,6 +727,7 @@ async function handleTestAllRequest(req: IncomingMessage, res: ServerResponse): 
             webhookId: webhook.webhookId,
             slug: webhook.slug,
             title: webhook.title,
+            category: webhook.category,
             status: 'failed',
             error: errorMsg
           }

@@ -35,6 +35,9 @@ export const PLACEHOLDER_ASSETS = {
   text: {
     value: 'High quality, professional',
   },
+  prompt: {
+    value: 'Professional photo, high quality, detailed',
+  },
 };
 
 /**

@@ -20,6 +20,7 @@ interface WebhookInfo {
   webhookId: string;
   slug?: string;
   title?: string;
+  category?: string;
   flowType?: 'image' | 'video';
 }
 
@@ -66,6 +67,7 @@ describe('Magic Flow Webhook Tests', () => {
           webhookId: id,
           slug: metadata?.slug,
           title: metadata?.title,
+          category: metadata?.category,
           flowType: metadata?.flowType
         };
       });
@@ -83,6 +85,7 @@ describe('Magic Flow Webhook Tests', () => {
           webhookId: landing.flow.flowId,
           slug: landing.slug,
           title: landing.title,
+          category: landing.category,
           flowType: landing.type,
         }));
     }
@@ -111,7 +114,7 @@ describe('Magic Flow Webhook Tests', () => {
      * Process a single webhook and return the result
      */
     async function processWebhook(webhook: WebhookInfo): Promise<WebhookTestResult> {
-      const { webhookId, slug, title, flowType } = webhook;
+      const { webhookId, slug, title, category, flowType } = webhook;
       const displayName = slug || webhookId;
 
       const startTime = Date.now();
@@ -126,6 +129,7 @@ describe('Magic Flow Webhook Tests', () => {
         webhookId,
         slug,
         title,
+        category,
         flowType,
         success: false,
         results: [],
